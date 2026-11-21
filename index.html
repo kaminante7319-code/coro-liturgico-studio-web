@@ -4321,6 +4321,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           };
           req.onsuccess = () => resolve(req.result);
           req.onerror = () => reject(req.error || new Error('No se pudo abrir la base de datos'));
+          req.onblocked = () => reject(new Error('La base de datos está bloqueada por otra pestaña de la aplicación'));
         });
       }
       async function saveRecordingDB(rec) {
@@ -4390,22 +4391,35 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
 
           rec.ondataavailable = e => { if (e.data && e.data.size > 0) state.recChunks.push(e.data); };
-          rec.onstop = () => {
+          rec.onstop = async () => {
+            // Esperar a que MediaRecorder entregue todos los datos antes de persistir.
             const blob = new Blob(state.recChunks, { type: rec.mimeType || 'audio/webm' });
-            const url = URL.createObjectURL(blob);
             const ext = (rec.mimeType || '').includes('mp4') ? 'm4a' : 'webm';
+            const createdAt = Date.now();
             const recording = {
-              id: 'rec-' + Date.now(),
+              id: 'rec-' + createdAt + '-' + Math.random().toString(36).slice(2, 7),
               name: `Ensayo ${state.recordings.length + 1}`,
               duration: document.getElementById('rec-timer').textContent,
-              url, ext, blob, createdAt: Date.now()
+              ext, blob, createdAt
             };
-            state.recordings.unshift(recording);
-            renderRecordings();
-            saveRecordingDB(recording).then(() => showToast('Grabación guardada en este dispositivo')).catch(err => {
-              console.error('Error guardando audio:', err);
-              showToast('Audio creado, pero no pudo guardarse permanentemente');
-            });
+            try {
+              await saveRecordingDB(recording);
+              recording.url = URL.createObjectURL(blob);
+              state.recordings.unshift(recording);
+              renderRecordings();
+              showToast('Grabación guardada permanentemente en este dispositivo');
+            } catch (err) {
+              console.error('Error guardando audio en IndexedDB:', err);
+              recording.url = URL.createObjectURL(blob);
+              state.recordings.unshift(recording);
+              renderRecordings();
+              const errEl = document.getElementById('rec-err');
+              if (errEl) {
+                errEl.textContent = 'La grabación se creó, pero no pudo guardarse permanentemente. Mantén esta pantalla abierta y descarga el audio como respaldo.';
+                errEl.classList.remove('hidden');
+              }
+              showToast('No se pudo confirmar el guardado permanente');
+            }
           };
 
           rec.start();
