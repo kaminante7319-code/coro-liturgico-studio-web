@@ -4308,6 +4308,64 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.querySelectorAll('.tone-btn.playing').forEach(b => b.classList.remove('playing'));
       }
 
+      // Persistencia de grabaciones en IndexedDB (no guardar URLs temporales)
+      const REC_DB_NAME = 'CoroLiturgicoStudioAudio';
+      const REC_DB_VERSION = 1;
+      function openRecDB() {
+        return new Promise((resolve, reject) => {
+          if (!window.indexedDB) return reject(new Error('IndexedDB no está disponible'));
+          const req = indexedDB.open(REC_DB_NAME, REC_DB_VERSION);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains('recordings')) db.createObjectStore('recordings', { keyPath: 'id' });
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error || new Error('No se pudo abrir la base de datos'));
+        });
+      }
+      async function saveRecordingDB(rec) {
+        const db = await openRecDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('recordings', 'readwrite');
+          tx.objectStore('recordings').put({ id: rec.id, name: rec.name, duration: rec.duration, ext: rec.ext, createdAt: rec.createdAt || Date.now(), blob: rec.blob });
+          tx.oncomplete = () => { db.close(); resolve(); };
+          tx.onerror = tx.onabort = () => { db.close(); reject(tx.error || new Error('No se pudo guardar el audio')); };
+        });
+      }
+      async function getRecordingsDB() {
+        const db = await openRecDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('recordings', 'readonly');
+          const req = tx.objectStore('recordings').getAll();
+          req.onsuccess = () => { db.close(); resolve(req.result || []); };
+          req.onerror = () => { db.close(); reject(req.error || new Error('No se pudieron cargar las grabaciones')); };
+        });
+      }
+      async function deleteRecordingDB(id) {
+        const db = await openRecDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction('recordings', 'readwrite');
+          tx.objectStore('recordings').delete(id);
+          tx.oncomplete = () => { db.close(); resolve(); };
+          tx.onerror = tx.onabort = () => { db.close(); reject(tx.error || new Error('No se pudo eliminar')); };
+        });
+      }
+      async function loadSavedRecordings() {
+        try {
+          const saved = await getRecordingsDB();
+          state.recordings.forEach(r => { if (r.url) URL.revokeObjectURL(r.url); });
+          state.recordings = saved.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(r => ({
+            id: r.id, name: r.name, duration: r.duration, ext: r.ext || 'webm', blob: r.blob, createdAt: r.createdAt,
+            url: URL.createObjectURL(r.blob)
+          }));
+          renderRecordings();
+        } catch (err) {
+          console.warn('No fue posible cargar las grabaciones guardadas:', err);
+          const el = document.getElementById('rec-err');
+          if (el) { el.textContent = 'No se pudieron recuperar las grabaciones almacenadas. El navegador puede no permitir almacenamiento local.'; el.classList.remove('hidden'); }
+        }
+      }
+
       function resizeRecCanvas() {
         const c = document.getElementById('rec-canvas');
         if (!c || !c.parentElement) return;
@@ -4336,14 +4394,18 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             const blob = new Blob(state.recChunks, { type: rec.mimeType || 'audio/webm' });
             const url = URL.createObjectURL(blob);
             const ext = (rec.mimeType || '').includes('mp4') ? 'm4a' : 'webm';
-            state.recordings.unshift({
+            const recording = {
               id: 'rec-' + Date.now(),
               name: `Ensayo ${state.recordings.length + 1}`,
               duration: document.getElementById('rec-timer').textContent,
-              url, ext
-            });
+              url, ext, blob, createdAt: Date.now()
+            };
+            state.recordings.unshift(recording);
             renderRecordings();
-            showToast('Grabación guardada');
+            saveRecordingDB(recording).then(() => showToast('Grabación guardada en este dispositivo')).catch(err => {
+              console.error('Error guardando audio:', err);
+              showToast('Audio creado, pero no pudo guardarse permanentemente');
+            });
           };
 
           rec.start();
@@ -4370,8 +4432,16 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             document.getElementById('rec-timer').textContent = `${mm}:${ss}`;
           }, 250);
         } catch (err) {
-          errEl.textContent = 'Permiso de micrófono denegado o no disponible.';
+          const messages = {
+            NotAllowedError: 'Permiso de micrófono denegado. Revisa los permisos del navegador o de la app.',
+            PermissionDeniedError: 'Permiso de micrófono denegado. Revisa los permisos del navegador o de la app.',
+            NotFoundError: 'No se detectó un micrófono disponible.',
+            NotReadableError: 'El micrófono está ocupado por otra aplicación.',
+            SecurityError: 'El navegador bloqueó el acceso al micrófono. Abre la app mediante HTTPS.'
+          };
+          errEl.textContent = messages[err && err.name] || `No se pudo activar el micrófono (${err && err.name ? err.name : 'error'}). Revisa permisos y vuelve a intentar.`;
           errEl.classList.remove('hidden');
+          console.error('Error de grabación:', err);
         }
       }
 
@@ -4442,7 +4512,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         list.querySelectorAll('[data-rec-name]').forEach(inp => {
           inp.onchange = () => {
             const rec = state.recordings.find(x => x.id === inp.dataset.recName);
-            if (rec && inp.value.trim()) rec.name = inp.value.trim();
+            if (rec && inp.value.trim()) {
+              rec.name = inp.value.trim();
+              if (rec.blob) saveRecordingDB(rec).catch(err => console.warn('No se guardó el nombre:', err));
+            }
           };
         });
 
@@ -4453,6 +4526,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             confirmDialog('Eliminar Grabación', `¿Deseas eliminar "${rec.name}"?`, 'Eliminar', () => {
               URL.revokeObjectURL(rec.url);
               state.recordings = state.recordings.filter(x => x.id !== rec.id);
+              deleteRecordingDB(rec.id).catch(err => console.warn('No se pudo eliminar audio persistido:', err));
               renderRecordings();
             });
           };
@@ -4687,6 +4761,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         setBpm(80);
         renderReferenceToneButtons();
         renderRecordings();
+        loadSavedRecordings();
       }
 
 
