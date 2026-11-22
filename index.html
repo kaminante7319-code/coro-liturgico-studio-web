@@ -1873,7 +1873,8 @@
         THEME: 'cls_v6_theme',
         SHOW_CHORDS: 'cls_v6_show_chords',
         TWO_COLS: 'cls_v6_two_cols',
-        ADMIN_PIN: 'cls_v6_admin_pin'
+        ADMIN_PIN: 'cls_v6_admin_pin',
+        CLOUD_CFG: 'cls_v6_cloud_cfg'
       };
 
       const DEFAULT_ADMIN_PIN = '1234';
@@ -2162,7 +2163,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         recTimerInt: null,
         recAnalyser: null,
         recRaf: null,
-        recordings: []
+        recordings: [],
+
+        // Cloud Sync (Supabase REST opcional, sin librerías externas)
+        cloud: { url: '', anonKey: '', choirCode: 'coro-principal', lastSync: '' }
       };
 
       // ===================================================================
@@ -2257,19 +2261,128 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           state.lists = JSON.parse(JSON.stringify(DEFAULT_LISTS));
         }
 
+        try {
+          const cc = JSON.parse(localStorage.getItem(STORAGE.CLOUD_CFG) || 'null');
+          if (cc && typeof cc === 'object') {
+            state.cloud = {
+              url: cc.url || '',
+              anonKey: cc.anonKey || '',
+              choirCode: cc.choirCode || 'coro-principal',
+              lastSync: cc.lastSync || ''
+            };
+          }
+        } catch (e) {}
+
         state.activeListId = state.lists[0] ? state.lists[0].id : null;
         state.visorSongId = state.songs[0] ? state.songs[0].id : null;
       }
 
-      function saveSongs() {
-        try { localStorage.setItem(STORAGE.SONGS, JSON.stringify(state.songs)); } catch (e) {
-          showToast('Aviso: almacenamiento lleno (el audio local grande se mantiene en esta sesión).');
+      const APP_DB_NAME = 'CoroLiturgicoStudioData';
+      const APP_DB_VERSION = 1;
+
+      function openAppDB() {
+        return new Promise((resolve, reject) => {
+          if (!window.indexedDB) return reject(new Error('IndexedDB no disponible'));
+          const req = indexedDB.open(APP_DB_NAME, APP_DB_VERSION);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv', { keyPath: 'key' });
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async function idbSet(key, value) {
+        try {
+          const db = await openAppDB();
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction('kv', 'readwrite');
+            tx.objectStore('kv').put({ key, value, updatedAt: Date.now() });
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+          });
+        } catch (e) {}
+      }
+
+      async function idbGet(key) {
+        try {
+          const db = await openAppDB();
+          return await new Promise((resolve, reject) => {
+            const tx = db.transaction('kv', 'readonly');
+            const req = tx.objectStore('kv').get(key);
+            req.onsuccess = () => { db.close(); resolve(req.result ? req.result.value : null); };
+            req.onerror = () => { db.close(); reject(req.error); };
+          });
+        } catch (e) {
+          return null;
         }
       }
 
+      function stripHeavyAudioForLocalStorage(songs) {
+        return songs.map(s => {
+          if (s.audioUrl && s.audioUrl.startsWith('data:')) {
+            return { ...s, audioUrl: '' };
+          }
+          return s;
+        });
+      }
+
+      function saveSongs() {
+        idbSet('songs', state.songs);
+        try {
+          localStorage.setItem(STORAGE.SONGS, JSON.stringify(stripHeavyAudioForLocalStorage(state.songs)));
+        } catch (e) {}
+      }
+
       function saveLists() {
+        idbSet('lists', state.lists);
         try { localStorage.setItem(STORAGE.LISTS, JSON.stringify(state.lists)); } catch (e) {}
         updateListasNavBadge();
+      }
+
+      function saveCloudConfig() {
+        try { localStorage.setItem(STORAGE.CLOUD_CFG, JSON.stringify(state.cloud)); } catch (e) {}
+      }
+
+      async function hydrateFromIndexedDB() {
+        const dbSongs = await idbGet('songs');
+        const dbLists = await idbGet('lists');
+        let changed = false;
+
+        if (Array.isArray(dbSongs) && dbSongs.length > 0) {
+          state.songs = dbSongs.map(s => ({
+            season: 'Ordinario', notes: '', audioUrl: '', audioName: '', ...s
+          }));
+          changed = true;
+        } else {
+          idbSet('songs', state.songs);
+        }
+
+        if (Array.isArray(dbLists) && dbLists.length > 0) {
+          state.lists = dbLists.map(item => ({
+            id: item.id || ('list-' + Date.now() + Math.random()),
+            name: item.name || 'Listado',
+            date: item.date || '',
+            songIds: Array.isArray(item.songIds) ? item.songIds.filter(id => state.songs.some(x => x.id === id)) : []
+          }));
+          changed = true;
+        } else {
+          idbSet('lists', state.lists);
+        }
+
+        if (changed) {
+          if (!state.songs.some(s => s.id === state.visorSongId)) {
+            state.visorSongId = state.songs[0] ? state.songs[0].id : null;
+          }
+          if (!state.lists.some(l => l.id === state.activeListId)) {
+            state.activeListId = state.lists[0] ? state.lists[0].id : null;
+          }
+          renderSongsList();
+          updateListasNavBadge();
+          renderListasView();
+          renderVisor();
+        }
       }
 
       function saveAdminPin(newPin) {
@@ -2459,7 +2572,30 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           <div class="divider"></div>
 
           <div style="display:flex; flex-direction:column; gap:8px;">
-            <span class="field-label" style="margin-bottom:0;">Respaldo JSON Completo (Cantos + Listas)</span>
+            <span class="field-label" style="margin-bottom:0;">☁️ Sincronización en la Nube (Supabase Gratis)</span>
+            <p style="margin:0; font-size:0.75rem; color:var(--text-muted);">
+              Guarda tu cantoral y listas en tu proyecto gratuito de Supabase sin saturar el teléfono.
+            </p>
+            <input id="cld-url" type="url" class="input" placeholder="https://TU-PROYECTO.supabase.co" value="${esc(state.cloud.url)}" />
+            <input id="cld-key" type="password" class="input" placeholder="Anon Public Key de Supabase" value="${esc(state.cloud.anonKey)}" />
+            <div class="grid-2">
+              <input id="cld-code" type="text" class="input" placeholder="ID Coro (ej: coro-parroquia)" value="${esc(state.cloud.choirCode)}" />
+              <button type="button" id="cld-save-cfg" class="btn btn-secondary btn-sm">Guardar conexión</button>
+            </div>
+            <div class="grid-2">
+              <button type="button" id="cld-push-btn" class="btn btn-primary btn-sm">☁️ Subir a la Nube</button>
+              <button type="button" id="cld-pull-btn" class="btn btn-soft btn-sm">⬇️ Bajar de la Nube</button>
+            </div>
+            <div id="cld-status-txt" style="font-size:0.73rem; color:var(--text-muted);">
+              ${state.cloud.lastSync ? `Última sincronización: ${esc(state.cloud.lastSync)}` : 'Requiere tabla "coro_backups" (id text primary key, payload jsonb, updated_at timestamptz).'}
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <span class="field-label" style="margin-bottom:0;">💾 Espacio Local y Respaldo JSON</span>
+            <div id="storage-quota-txt" style="font-size:0.75rem; color:var(--text-muted);">Calculando uso de almacenamiento...</div>
             <div class="grid-2">
               <button type="button" id="adm-export-btn" class="btn btn-secondary btn-sm">Exportar (.json)</button>
               <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
@@ -2467,6 +2603,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
                 <input id="adm-import-input" type="file" accept=".json,application/json" class="hidden" />
               </label>
             </div>
+            <button type="button" id="adm-clean-audio" class="btn btn-secondary btn-sm" style="width:100%;">
+              🧹 Liberar audios incrustados pesados del dispositivo
+            </button>
             <button type="button" id="adm-restore-factory" class="btn btn-danger btn-sm" style="width:100%;">
               Restaurar cantos de fábrica
             </button>
@@ -2504,6 +2643,114 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           document.getElementById('pin-new').value = '';
           document.getElementById('pin-cnf').value = '';
           showToast('PIN actualizado');
+        };
+
+        if (navigator.storage && navigator.storage.estimate) {
+          navigator.storage.estimate().then(est => {
+            const usedMb = ((est.usage || 0) / (1024 * 1024)).toFixed(2);
+            const quotaMb = ((est.quota || 0) / (1024 * 1024)).toFixed(0);
+            const el = document.getElementById('storage-quota-txt');
+            if (el) el.textContent = `Espacio usado por la app: ${usedMb} MB de ${quotaMb} MB disponibles.`;
+          }).catch(() => {});
+        }
+
+        document.getElementById('cld-save-cfg').onclick = () => {
+          state.cloud.url = document.getElementById('cld-url').value.trim().replace(/\/+$/, '');
+          state.cloud.anonKey = document.getElementById('cld-key').value.trim();
+          state.cloud.choirCode = document.getElementById('cld-code').value.trim() || 'coro-principal';
+          saveCloudConfig();
+          showToast('Configuración de nube guardada');
+        };
+
+        document.getElementById('cld-push-btn').onclick = async () => {
+          state.cloud.url = document.getElementById('cld-url').value.trim().replace(/\/+$/, '');
+          state.cloud.anonKey = document.getElementById('cld-key').value.trim();
+          state.cloud.choirCode = document.getElementById('cld-code').value.trim() || 'coro-principal';
+          saveCloudConfig();
+          if (!state.cloud.url || !state.cloud.anonKey) {
+            showToast('Completa la URL y Anon Key de Supabase');
+            return;
+          }
+          const stEl = document.getElementById('cld-status-txt');
+          stEl.textContent = 'Subiendo repertorio a la nube...';
+          try {
+            const cleanSongs = stripHeavyAudioForLocalStorage(state.songs);
+            const res = await fetch(`${state.cloud.url}/rest/v1/coro_backups`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': state.cloud.anonKey,
+                'Authorization': `Bearer ${state.cloud.anonKey}`,
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({
+                id: state.cloud.choirCode,
+                payload: { songs: cleanSongs, lists: state.lists },
+                updated_at: new Date().toISOString()
+              })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            state.cloud.lastSync = new Date().toLocaleString();
+            saveCloudConfig();
+            stEl.textContent = `Última sincronización: ${state.cloud.lastSync}`;
+            showToast('Repertorio respaldado en Supabase');
+          } catch (err) {
+            stEl.textContent = 'Error al subir. Verifica URL, Key y permisos RLS de la tabla coro_backups.';
+            showToast('Error al sincronizar con la nube');
+          }
+        };
+
+        document.getElementById('cld-pull-btn').onclick = async () => {
+          state.cloud.url = document.getElementById('cld-url').value.trim().replace(/\/+$/, '');
+          state.cloud.anonKey = document.getElementById('cld-key').value.trim();
+          state.cloud.choirCode = document.getElementById('cld-code').value.trim() || 'coro-principal';
+          saveCloudConfig();
+          if (!state.cloud.url || !state.cloud.anonKey) {
+            showToast('Completa la URL y Anon Key de Supabase');
+            return;
+          }
+          const stEl = document.getElementById('cld-status-txt');
+          stEl.textContent = 'Descargando repertorio de la nube...';
+          try {
+            const res = await fetch(
+              `${state.cloud.url}/rest/v1/coro_backups?id=eq.${encodeURIComponent(state.cloud.choirCode)}&select=payload,updated_at`,
+              {
+                headers: {
+                  'apikey': state.cloud.anonKey,
+                  'Authorization': `Bearer ${state.cloud.anonKey}`
+                }
+              }
+            );
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const rows = await res.json();
+            if (!Array.isArray(rows) || !rows[0] || !rows[0].payload) {
+              stEl.textContent = 'No se encontró respaldo con ese ID de Coro.';
+              showToast('Sin respaldo en ese ID');
+              return;
+            }
+            applyImportedPayload(rows[0].payload, 'merge');
+            state.cloud.lastSync = new Date().toLocaleString();
+            saveCloudConfig();
+            stEl.textContent = `Descargado y combinado: ${state.cloud.lastSync}`;
+            showToast('Repertorio descargado de la nube');
+          } catch (err) {
+            stEl.textContent = 'Error al descargar de Supabase.';
+            showToast('Error al conectar con la nube');
+          }
+        };
+
+        document.getElementById('adm-clean-audio').onclick = () => {
+          let freed = 0;
+          state.songs.forEach(s => {
+            if (s.audioUrl && s.audioUrl.startsWith('data:')) {
+              s.audioUrl = '';
+              freed++;
+            }
+          });
+          saveSongs();
+          renderSongsList();
+          renderVisor();
+          showToast(freed > 0 ? `Se liberaron ${freed} audios locales pesados` : 'No había audios pesados incrustados');
         };
 
         document.getElementById('adm-export-btn').onclick = exportBackupJSON;
@@ -3033,7 +3280,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             const objUrl = URL.createObjectURL(pendingLocalFile);
             state.sessionAudioMap[targetSong.id] = objUrl;
             targetSong.audioName = pendingLocalFile.name;
-            if (pendingLocalFile.size <= 1200000) {
+            if (pendingLocalFile.size <= 8388608) {
               const reader = new FileReader();
               reader.onload = () => {
                 targetSong.audioUrl = reader.result;
@@ -3070,6 +3317,42 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         showToast('Respaldo JSON exportado');
       }
 
+      function applyImportedPayload(parsed, mode = 'merge') {
+        const impSongs = (Array.isArray(parsed) ? parsed : parsed.songs).map(s => ({
+          season: 'Ordinario', notes: '', audioUrl: '', audioName: '', ...s
+        }));
+        const impLists = Array.isArray(parsed.lists) ? parsed.lists : [];
+
+        if (mode === 'replace') {
+          state.songs = impSongs;
+          if (impLists.length > 0) state.lists = impLists;
+        } else {
+          const songMap = new Map(state.songs.map(s => [s.id, s]));
+          impSongs.forEach(s => {
+            const key = s.id || ('song-' + s.title.toLowerCase().replace(/\s+/g, '-'));
+            songMap.set(key, { ...s, id: key });
+          });
+          state.songs = Array.from(songMap.values());
+
+          if (impLists.length > 0) {
+            const listMap = new Map(state.lists.map(l => [l.id, l]));
+            impLists.forEach(l => {
+              const lKey = l.id || ('list-' + l.name.toLowerCase().replace(/\s+/g, '-'));
+              listMap.set(lKey, { ...l, id: lKey });
+            });
+            state.lists = Array.from(listMap.values());
+          }
+        }
+
+        state.activeListId = state.lists[0] ? state.lists[0].id : null;
+        state.visorSongId = state.songs[0] ? state.songs[0].id : null;
+        saveSongs();
+        saveLists();
+        renderSongsList();
+        renderListasView();
+        renderVisor();
+      }
+
       function importBackupJSON(file) {
         if (!requireAdmin()) return;
         const reader = new FileReader();
@@ -3078,27 +3361,33 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             const parsed = JSON.parse(reader.result);
             const impSongs = Array.isArray(parsed) ? parsed : parsed.songs;
             if (!Array.isArray(impSongs) || impSongs.length === 0) throw new Error('Sin cantos');
-            confirmDialog(
-              'Importar Respaldo JSON',
-              `Se cargarán ${impSongs.length} cantos${Array.isArray(parsed.lists) ? ` y ${parsed.lists.length} listados` : ''}.`,
-              'Importar',
-              () => {
-                state.songs = impSongs.map(s => ({
-                  season: 'Ordinario', notes: '', audioUrl: '', audioName: '', ...s
-                }));
-                if (Array.isArray(parsed.lists) && parsed.lists.length > 0) {
-                  state.lists = parsed.lists;
-                }
-                state.activeListId = state.lists[0] ? state.lists[0].id : null;
-                state.visorSongId = state.songs[0] ? state.songs[0].id : null;
-                saveSongs();
-                saveLists();
-                renderSongsList();
-                renderListasView();
-                renderVisor();
-                showToast('Respaldo importado con éxito');
-              }
-            );
+
+            openModal(`
+              <div class="row-between">
+                <h3 class="section-title">Importar Respaldo JSON</h3>
+                <button type="button" id="imp-close" class="mini-icon-btn" style="font-size:1.3rem;">&times;</button>
+              </div>
+              <p style="margin:0; font-size:0.88rem; color:var(--text-muted);">
+                El archivo contiene <strong>${impSongs.length}</strong> cantos${Array.isArray(parsed.lists) ? ` y <strong>${parsed.lists.length}</strong> listados` : ''}. ¿Cómo deseas importarlos?
+              </p>
+              <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+                <button type="button" id="imp-merge" class="btn btn-primary btn-sm">➕ Combinar con mis cantos actuales</button>
+                <button type="button" id="imp-replace" class="btn btn-danger btn-sm">♻️ Reemplazar repertorio completo</button>
+                <button type="button" id="imp-cancel" class="btn btn-secondary btn-sm">Cancelar</button>
+              </div>
+            `);
+            document.getElementById('imp-close').onclick = closeModal;
+            document.getElementById('imp-cancel').onclick = closeModal;
+            document.getElementById('imp-merge').onclick = () => {
+              closeModal();
+              applyImportedPayload(parsed, 'merge');
+              showToast('Cantos combinados con éxito');
+            };
+            document.getElementById('imp-replace').onclick = () => {
+              closeModal();
+              applyImportedPayload(parsed, 'replace');
+              showToast('Repertorio reemplazado con éxito');
+            };
           } catch (e) {
             showToast('Archivo JSON inválido');
           }
@@ -4813,6 +5102,51 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         renderReferenceToneButtons();
         renderRecordings();
         loadSavedRecordings();
+        hydrateFromIndexedDB();
+
+        // Gestos horizontales en Visor y Modo Atril para cambiar de canto en una lista
+        let touchStartX = 0, touchStartY = 0;
+        const handleTouchStart = e => {
+          if (!e.touches || e.touches.length !== 1) return;
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        };
+        const handleTouchEnd = e => {
+          if (!e.changedTouches || e.changedTouches.length !== 1 || !state.visorListId) return;
+          const dx = e.changedTouches[0].clientX - touchStartX;
+          const dy = e.changedTouches[0].clientY - touchStartY;
+          if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+            navigateListStep(dx < 0 ? 1 : -1);
+          }
+        };
+        document.getElementById('visor-sheet').addEventListener('touchstart', handleTouchStart, { passive: true });
+        document.getElementById('visor-sheet').addEventListener('touchend', handleTouchEnd, { passive: true });
+        document.getElementById('atril-scroll-area').addEventListener('touchstart', handleTouchStart, { passive: true });
+        document.getElementById('atril-scroll-area').addEventListener('touchend', handleTouchEnd, { passive: true });
+
+        // Atajos de teclado (Espacio = Auto-Scroll, Flechas = Canto anterior/siguiente en lista)
+        document.addEventListener('keydown', e => {
+          const tag = (e.target && e.target.tagName) || '';
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+          const atrilOpen = !document.getElementById('atril-overlay').classList.contains('hidden');
+          if (!atrilOpen && state.activeTab !== 'visor') return;
+          if (e.code === 'Space') {
+            e.preventDefault();
+            toggleAutoScroll();
+          } else if (e.code === 'ArrowRight' && state.visorListId) {
+            navigateListStep(1);
+          } else if (e.code === 'ArrowLeft' && state.visorListId) {
+            navigateListStep(-1);
+          }
+        });
+
+        // Re-solicitar WakeLock en Modo Atril al volver a la app
+        document.addEventListener('visibilitychange', async () => {
+          const atrilOpen = !document.getElementById('atril-overlay').classList.contains('hidden');
+          if (document.visibilityState === 'visible' && atrilOpen && 'wakeLock' in navigator && !state.wakeLock) {
+            try { state.wakeLock = await navigator.wakeLock.request('screen'); renderAtrilSheet(); } catch (e) {}
+          }
+        });
       }
 
 
