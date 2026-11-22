@@ -1393,6 +1393,11 @@
           <span id="role-btn-text">🔒 Coro</span>
         </button>
 
+        <button id="btn-install-pwa" type="button" class="top-btn primary-soft hidden" title="Instalar aplicación">
+          <span>📲</span>
+          <span class="top-btn-label">Instalar</span>
+        </button>
+
         <button id="btn-open-theme" type="button" class="top-btn primary-soft" title="Color y apariencia">
           <span>🎨</span>
           <span class="top-btn-label">Color</span>
@@ -4742,6 +4747,51 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         setTimeout(dismiss, 1150);
       }
 
+      let deferredInstallPrompt = null;
+
+      function isStandaloneDisplay() {
+        return (
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.matchMedia('(display-mode: fullscreen)').matches ||
+          window.navigator.standalone === true
+        );
+      }
+
+      function syncInstallButton() {
+        const btn = document.getElementById('btn-install-pwa');
+        if (!btn) return;
+        const canShow = Boolean(deferredInstallPrompt) && !isStandaloneDisplay();
+        btn.classList.toggle('hidden', !canShow);
+      }
+
+      function bindInstallPrompt() {
+        const btn = document.getElementById('btn-install-pwa');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredInstallPrompt = e;
+          syncInstallButton();
+        });
+
+        if (btn) {
+          btn.onclick = async () => {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            syncInstallButton();
+          };
+        }
+
+        window.addEventListener('appinstalled', () => {
+          deferredInstallPrompt = null;
+          syncInstallButton();
+          showToast('Coro Litúrgico Studio instalado');
+        });
+
+        syncInstallButton();
+      }
+
       function init() {
         setupSplashScreen();
         const brandLogoBtn = document.getElementById('btn-brand-logo');
@@ -4750,6 +4800,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         applyTheme(state.theme.primary, state.theme.dark, false);
         populateCantoralFilters();
         bindEvents();
+        bindInstallPrompt();
         syncAdminUI();
         updateFullscreenUI();
         syncVisorToggleUI();
@@ -4767,7 +4818,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(() => {});
+          navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
         });
       }
       document.addEventListener('DOMContentLoaded', init);
