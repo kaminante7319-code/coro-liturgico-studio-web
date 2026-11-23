@@ -258,6 +258,48 @@
       .top-btn { padding: 0 13px; }
     }
 
+
+    /* BARRA ÚNICA DE HERRAMIENTAS */
+    .unified-tools-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 80; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -8px 24px rgba(0,0,0,.10); }
+    .unified-tools-wrap { max-width: 920px; margin: 0 auto; position: relative; }
+    .unified-tools-toggle { width: 100%; min-height: 48px; border: 1px solid var(--primary-border); border-radius: 14px; background: var(--primary-soft); color: var(--primary); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; font-weight: 800; font-size: .94rem; cursor: pointer; }
+    .unified-tools-toggle .toggle-left { display: flex; align-items: center; gap: 10px; }
+    .unified-tools-toggle .toggle-arrow { transition: transform .18s ease; }
+    .unified-tools-toggle[aria-expanded="true"] .toggle-arrow { transform: rotate(180deg); }
+    .unified-tools-menu { display: none; position: absolute; bottom: calc(100% + 10px); left: 0; right: 0; max-height: min(68vh, 560px); overflow: auto; border: 1px solid var(--border); border-radius: 18px; padding: 12px; background: var(--surface); box-shadow: 0 18px 45px rgba(0,0,0,.22); }
+    .unified-tools-menu.open { display: block; }
+    .tool-menu-section + .tool-menu-section { border-top: 1px solid var(--border); margin-top: 9px; padding-top: 10px; }
+    .tool-menu-title { font-size: .7rem; font-weight: 900; color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; padding: 2px 5px 8px; }
+    .tool-menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+    .tool-menu-btn { min-height: 47px; display: flex; align-items: center; gap: 9px; text-align: left; border: 1px solid var(--border); border-radius: 12px; padding: 9px 11px; background: var(--surface); color: var(--text); font-weight: 750; cursor: pointer; }
+    .tool-menu-btn:active { transform: scale(.98); }
+    .tool-menu-btn .tool-icon { font-size: 1.22rem; width: 25px; text-align: center; }
+    .tool-menu-btn .tool-sub { display: block; font-size: .68rem; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
+    .tool-menu-btn.active-tool { border-color: var(--primary-border); background: var(--primary-soft); color: var(--primary); }
+    .tool-menu-btn.wide { grid-column: 1 / -1; }
+    body { padding-bottom: 88px !important; }
+    @media (max-width: 420px) { .unified-tools-nav { padding-left: 8px; padding-right: 8px; } .tool-menu-grid { gap: 6px; } .tool-menu-btn { padding: 8px; min-height: 44px; font-size: .82rem; } }
+
+    /* ENSAYO HUB - UI compacta y expansible */
+    .ensayo-hub-head { padding: 15px; }
+    .ensayo-hub-mark { font-size: 2rem; padding: 9px 12px; border-radius: 14px; background: var(--primary-soft); }
+    .ensayo-hub-grid { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+    .ensayo-module { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); }
+    .ensayo-module summary { list-style: none; display: grid; grid-template-columns: 42px minmax(0,1fr) 24px; align-items: center; gap: 10px; padding: 12px; cursor: pointer; min-height: 62px; }
+    .ensayo-module summary::-webkit-details-marker { display: none; }
+    .ensayo-module-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--primary-soft); font-size: 1.25rem; }
+    .ensayo-module-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .ensayo-module-title b { font-size: .92rem; color: var(--text); }
+    .ensayo-module-title small { font-size: .73rem; color: var(--text-muted); }
+    .ensayo-chevron { font-size: 1.1rem; text-align: center; color: var(--text-muted); transition: transform .18s ease; }
+    .ensayo-module[open] .ensayo-chevron { transform: rotate(180deg); }
+    .ensayo-module[open] summary { background: var(--primary-soft); }
+    .ensayo-module-body { padding: 0 12px 13px 64px; border-top: 1px solid var(--border); }
+    .ensayo-module-body p { font-size: .8rem; line-height: 1.45; color: var(--text-muted); margin: 10px 0; }
+    .ensayo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ensayo-actions .btn { min-height: 36px; }
+    @media (max-width: 420px) { .ensayo-module-body { padding-left: 12px; } .bottom-nav-inner { gap: 0; padding: 3px; } .nav-item { font-size: .58rem; } .nav-item .nav-emoji { font-size: 1rem; } }
+
     /* =====================================================================
        4. SHARED COMPONENTS & PILL CONTROLS
        ===================================================================== */
@@ -814,6 +856,35 @@
     .no-chords .chord-tag { display: none !important; }
     .no-chords .stanza-block { margin-bottom: 0.85em; }
 
+
+    /* VISOR: panel lateral derecho plegable */
+    #view-visor { position: relative; }
+    .visor-options-toggle { position: fixed; right: 12px; top: 92px; z-index: 55; box-shadow: var(--shadow); }
+    .visor-options-drawer { position: fixed; right: 0; top: 138px; bottom: 84px; width: min(310px, 88vw); z-index: 54; overflow-y: auto; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-right: 0; border-radius: 16px 0 0 16px; box-shadow: var(--shadow); transform: translateX(105%); transition: transform .22s ease; }
+    .visor-options-drawer.open { transform: translateX(0); }
+    .visor-options-drawer .control-box { margin-bottom: 8px; }
+    .visor-options-drawer .visor-controls-grid { grid-template-columns: 1fr; }
+    .visor-options-drawer .segmented { margin-bottom: 8px; }
+    .visor-options-drawer .drawer-title { font-weight: 800; font-size: .9rem; margin: 2px 0 12px; }
+    .visor-options-drawer .drawer-section-label { font-size: .72rem; color: var(--text-muted); font-weight: 800; margin: 10px 0 6px; }
+    .visor-options-drawer #scroll-speed-bar:not(.hidden) { display: flex; flex-wrap: wrap; gap: 6px; }
+    @media (max-width: 600px) { .visor-options-toggle { right: 8px; top: 84px; } .visor-options-drawer { top: 126px; bottom: 76px; width: min(300px, 92vw); } }
+
+
+    /* Herramientas mini flotantes para acompañar el Visor */
+    .mini-tool-window { position: fixed !important; display: block !important; visibility: visible; left: auto; right: 14px; top: auto; bottom: 14px; width: min(390px, 92vw); max-height: min(72vh, 620px); overflow-y: auto; z-index: 110; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.28); padding: 12px; touch-action: pan-y; }
+    .mini-tool-window.hidden { display: none !important; }
+    .mini-tool-window.mini-tool-second { left: 14px; right: auto; bottom: 14px; z-index: 111; }
+    .mini-tool-window.drag-floating { left: auto; right: 14px; top: 100px; bottom: auto; }
+    .mini-tool-window.mini-tool-second.drag-floating { left: 14px; right: auto; top: 120px; bottom: auto; }
+    #view-estudio.mini-tools-host .segmented.cols-3 { display:none !important; }
+    #view-estudio.mini-tools-host { display:block !important; visibility:visible !important; position:static !important; background:transparent !important; border:0 !important; padding:0 !important; margin:0 !important; }
+    .mini-tool-window .mini-tool-header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:2px 2px 10px; margin-bottom:8px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface); z-index:2; }
+    .mini-tool-window .mini-tool-title { font-weight:800; font-size:.9rem; }
+    .mini-tool-window .mini-tool-close { border:1px solid var(--border); background:var(--surface-2, var(--surface)); color:var(--text); border-radius:9px; padding:5px 9px; cursor:pointer; }
+    .mini-tool-window #panel-grabadora .card { padding:10px; }
+    @media (max-width:600px) { .mini-tool-window { right:8px; bottom:8px; width:min(340px,94vw); max-height:65vh; } }
+
     /* =====================================================================
        7. MODO ATRIL OVERLAY
        ===================================================================== */
@@ -1207,7 +1278,7 @@
       box-shadow: var(--shadow-float);
       padding: 4px;
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 2px;
     }
 
@@ -1526,36 +1597,18 @@
     <!-- TAB 2: VISOR                                                        -->
     <!-- =================================================================== -->
     <section id="view-visor" class="view-section hidden">
-      <!-- Active List Quick Navigation -->
-      <div id="visor-list-bar" class="card hidden" style="padding:9px 12px;">
-        <div class="row-between" style="flex-wrap:wrap; gap:6px;">
-          <button id="btn-visor-prev" type="button" class="btn btn-secondary btn-sm">◀ Anterior</button>
-          <span id="visor-list-pos" style="font-size:0.78rem; font-weight:800; color:var(--primary); text-align:center;">Canto 1 de 3</span>
-          <button id="btn-visor-next" type="button" class="btn btn-secondary btn-sm">Siguiente ▶</button>
+      <button type="button" id="visor-options-toggle" class="btn btn-primary btn-sm visor-options-toggle" aria-expanded="false" aria-controls="visor-options-drawer">⚙️ Opciones del Visor</button>
+      <aside id="visor-options-drawer" class="visor-options-drawer" aria-hidden="true">
+        <div class="row-between"><div class="drawer-title">Herramientas del canto</div><button type="button" id="visor-options-close" class="mini-icon-btn" aria-label="Cerrar opciones">✕</button></div>
+        <div class="drawer-section-label">Modo de presentación</div>
+        <button type="button" id="btn-visor-open-atril" class="btn btn-secondary btn-sm" style="width:100%; margin:0 0 12px;">📖 Abrir modo Atril</button>
+        <div class="drawer-section-label">Herramientas de ensayo</div>
+        <div class="grid-2" style="gap:7px; margin:0 0 12px;">
+          <button type="button" class="btn btn-secondary btn-sm" data-visor-tool="metronomo">⏱️ Metrónomo</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-visor-tool="grabadora">🎙️ Grabadora</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-visor-tool="afinador">🎯 Afinador</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-visor-tool="tonos">🎹 Tonos referencia</button>
         </div>
-      </div>
-
-      <!-- Song Header & Controls -->
-      <div class="card">
-        <div class="row-between" style="align-items:flex-start;">
-          <div style="min-width:0;">
-            <div class="row-wrap" style="margin-bottom:5px;">
-              <span id="visor-moment" class="badge">Comunión</span>
-              <span id="visor-season" class="badge-neutral">Ordinario</span>
-              <span id="visor-bpm-tag" class="badge-neutral">74 BPM</span>
-            </div>
-            <h2 id="visor-title" class="section-title" style="font-size:1.3rem;">Altar de Paz</h2>
-            <p id="visor-key-summary" class="section-desc">Tono actual: D</p>
-          </div>
-
-          <div class="row" style="gap:4px; flex-shrink:0;">
-            <button id="btn-visor-edit" type="button" class="mini-icon-btn hidden" title="Editar canto">✏️</button>
-            <button id="btn-visor-del" type="button" class="mini-icon-btn danger hidden" title="Eliminar canto">🗑️</button>
-            <button id="btn-visor-wa" type="button" class="mini-icon-btn" title="Compartir por WhatsApp">📲</button>
-            <button id="btn-visor-print" type="button" class="mini-icon-btn" title="Imprimir / PDF">🖨️</button>
-          </div>
-        </div>
-
         <!-- Con/Sin Acordes + 1/2 Cols -->
         <div class="grid-2" style="margin-top:12px;">
           <div class="segmented cols-2" role="group" aria-label="Acordes">
@@ -1605,7 +1658,7 @@
 
           <div class="control-box">
             <button id="btn-scroll-toggle" type="button" class="btn btn-secondary btn-sm" style="flex:1;">Scroll</button>
-            <button id="btn-open-atril" type="button" class="btn btn-primary btn-sm" style="flex:1;">📖 Modo Atril</button>
+            
           </div>
         </div>
 
@@ -1615,6 +1668,37 @@
           <input id="scroll-speed-range" type="range" min="1" max="10" value="3" style="flex:1;" />
           <span id="scroll-speed-val" style="font-size:0.8rem; font-weight:800; color:var(--primary); width:20px; text-align:right;">3</span>
         </div>
+      </aside>
+      <!-- Active List Quick Navigation -->
+      <div id="visor-list-bar" class="card hidden" style="padding:9px 12px;">
+        <div class="row-between" style="flex-wrap:wrap; gap:6px;">
+          <button id="btn-visor-prev" type="button" class="btn btn-secondary btn-sm">◀ Anterior</button>
+          <span id="visor-list-pos" style="font-size:0.78rem; font-weight:800; color:var(--primary); text-align:center;">Canto 1 de 3</span>
+          <button id="btn-visor-next" type="button" class="btn btn-secondary btn-sm">Siguiente ▶</button>
+        </div>
+      </div>
+
+      <!-- Song Header & Controls -->
+      <div class="card">
+        <div class="row-between" style="align-items:flex-start;">
+          <div style="min-width:0;">
+            <div class="row-wrap" style="margin-bottom:5px;">
+              <span id="visor-moment" class="badge">Comunión</span>
+              <span id="visor-season" class="badge-neutral">Ordinario</span>
+              <span id="visor-bpm-tag" class="badge-neutral">74 BPM</span>
+            </div>
+            <h2 id="visor-title" class="section-title" style="font-size:1.3rem;">Altar de Paz</h2>
+            <p id="visor-key-summary" class="section-desc">Tono actual: D</p>
+          </div>
+
+          <div class="row" style="gap:4px; flex-shrink:0;">
+            <button id="btn-visor-edit" type="button" class="mini-icon-btn hidden" title="Editar canto">✏️</button>
+            <button id="btn-visor-del" type="button" class="mini-icon-btn danger hidden" title="Eliminar canto">🗑️</button>
+            <button id="btn-visor-wa" type="button" class="mini-icon-btn" title="Compartir por WhatsApp">📲</button>
+            <button id="btn-visor-print" type="button" class="mini-icon-btn" title="Imprimir / PDF">🖨️</button>
+          </div>
+        </div>
+
       </div>
 
       <!-- Direction Notes Box -->
@@ -1759,6 +1843,8 @@
 
       <!-- SUB-PANEL 1: AFINADOR CROMÁTICO -->
       <div id="panel-afinador" class="card" style="text-align:center;">
+        <button id="btn-tone-mode" type="button" class="btn btn-primary btn-sm" style="margin-bottom:10px;">🎹 Activar modo Tono</button>
+        <div id="tuner-mode-content" class="hidden">
         <div class="row-between" style="text-align:left;">
           <div>
             <h2 class="section-title">Afinador Cromático</h2>
@@ -1785,6 +1871,7 @@
           <span>Alto ♯</span>
         </div>
         <p id="tuner-err" class="hidden" style="color:var(--danger); font-size:0.8rem; margin:10px 0 0;"></p>
+        </div><!-- /tuner-mode-content -->
       </div>
 
       <!-- SUB-PANEL 2: TONOS DE REFERENCIA -->
@@ -1794,14 +1881,39 @@
             <h2 class="section-title">Tonos de Referencia</h2>
             <p class="section-desc">Toca una nota para escucharla o detenerla.</p>
           </div>
-          <button id="btn-ref-stop" type="button" class="btn btn-danger btn-sm hidden">Silenciar</button>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <button id="btn-ref-test" type="button" class="btn btn-secondary btn-sm">🔊 Probar audio</button>
+            <button id="btn-ref-stop" type="button" class="btn btn-danger btn-sm hidden">Silenciar</button>
+          </div>
         </div>
+        <span id="ref-audio-status" class="section-desc" style="display:block;margin-bottom:10px;">Audio listo para probar</span>
 
         <span class="field-label">Guitarra (6 cuerdas E2–E4)</span>
-        <div id="guitar-tones-grid" class="tone-grid-6" style="margin-bottom:16px;"></div>
+        <div id="guitar-tones-grid" class="tone-grid-6" style="margin-bottom:16px;">
+<button type="button" class="tone-btn" data-ref-key="g-0" data-ref-freq="82.41"><span class="t-main">E2</span><span class="t-sub">6ª • 82 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-1" data-ref-freq="110.00"><span class="t-main">A2</span><span class="t-sub">5ª • 110 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-2" data-ref-freq="146.83"><span class="t-main">D3</span><span class="t-sub">4ª • 147 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-3" data-ref-freq="196.00"><span class="t-main">G3</span><span class="t-sub">3ª • 196 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-4" data-ref-freq="246.94"><span class="t-main">B3</span><span class="t-sub">2ª • 247 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-5" data-ref-freq="329.63"><span class="t-main">E4</span><span class="t-sub">1ª • 330 Hz</span></button>
+        </div>
+
 
         <span class="field-label">Escala Vocal (C4–B4)</span>
-        <div id="vocal-tones-grid" class="tone-grid-12"></div>
+        <div id="vocal-tones-grid" class="tone-grid-12">
+<button type="button" class="tone-btn" data-ref-key="v-0" data-ref-freq="261.63"><span class="t-main">C4</span><span class="t-sub">Do</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-1" data-ref-freq="277.18"><span class="t-main">C#4</span><span class="t-sub">Do#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-2" data-ref-freq="293.66"><span class="t-main">D4</span><span class="t-sub">Re</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-3" data-ref-freq="311.13"><span class="t-main">D#4</span><span class="t-sub">Re#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-4" data-ref-freq="329.63"><span class="t-main">E4</span><span class="t-sub">Mi</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-5" data-ref-freq="349.23"><span class="t-main">F4</span><span class="t-sub">Fa</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-6" data-ref-freq="369.99"><span class="t-main">F#4</span><span class="t-sub">Fa#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-7" data-ref-freq="392.00"><span class="t-main">G4</span><span class="t-sub">Sol</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-8" data-ref-freq="415.30"><span class="t-main">G#4</span><span class="t-sub">Sol#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-9" data-ref-freq="440.00"><span class="t-main">A4</span><span class="t-sub">La 440</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-10" data-ref-freq="466.16"><span class="t-main">A#4</span><span class="t-sub">Si♭</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-11" data-ref-freq="493.88"><span class="t-main">B4</span><span class="t-sub">Si</span></button>
+        </div>
       </div>
 
       <!-- SUB-PANEL 3: GRABADORA DE ENSAYOS -->
@@ -1836,36 +1948,64 @@
 
   </main>
 
+  <!-- =================================================================== -->
+  <!-- ENSAYO HUB: CENTRO DE CONTROL COMPACTO                               -->
+  <!-- =================================================================== -->
+  <section id="view-ensayo" class="view-section hidden" aria-hidden="true" style="display:none">
+    <div class="card ensayo-hub-head">
+      <div class="row-between">
+        <div><div class="section-title">Ensayo</div><p class="section-desc">Acceso directo al visor de cantos y sus herramientas</p></div>
+        <span class="ensayo-hub-mark">🎼</span>
+      </div>
+      <div class="ensayo-hub-grid">
+        <details class="ensayo-module" data-module="visor" open>
+          <summary><span class="ensayo-module-icon">📖</span><span class="ensayo-module-title"><b>Visor</b><small>Letra, acordes y herramientas de ensayo</small></span><span class="ensayo-chevron">⌄</span></summary>
+          <div class="ensayo-module-body"><p>Abre un canto y ajusta tonalidad, acordes, columnas, tamaño de letra y desplazamiento desde la barra lateral derecha.</p><div class="ensayo-actions"><button type="button" class="btn btn-primary" data-hub-open="visor">Abrir Visor</button><button type="button" class="btn btn-secondary" data-hub-open="cantoral">Elegir canto</button></div></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+
   <!-- ===================================================================== -->
-  <!-- FIXED BOTTOM NAVIGATION BAR (5 TABS)                                  -->
+  <!-- FIXED BOTTOM NAVIGATION BAR (6 TABS)                                  -->
   <!-- ===================================================================== -->
-  <nav class="bottom-nav" aria-label="Navegación principal">
-    <div class="bottom-nav-inner">
-      <button type="button" class="nav-item active" data-tab="cantoral">
-        <span class="nav-emoji">🎵</span>
-        <span>Cantoral</span>
+  <!-- BARRA ÚNICA: acceso a cantos, ensayo y productividad -->
+  <nav class="unified-tools-nav" aria-label="Barra única de herramientas">
+    <div class="unified-tools-wrap">
+      <button type="button" id="unified-tools-toggle" class="unified-tools-toggle" aria-expanded="false" aria-controls="unified-tools-menu">
+        <span class="toggle-left"><span style="font-size:1.35rem">☰</span><span>Herramientas y repertorio</span></span>
+        <span class="toggle-arrow">⌃</span>
       </button>
-      <button type="button" class="nav-item" data-tab="visor">
-        <span class="nav-emoji">📖</span>
-        <span>Visor</span>
-      </button>
-      <button type="button" class="nav-item" data-tab="listas">
-        <span id="listas-nav-badge" class="nav-badge-count hidden">0</span>
-        <span class="nav-emoji">📋</span>
-        <span>Listas</span>
-      </button>
-      <button type="button" class="nav-item" data-tab="metronomo">
-        <span class="nav-emoji">⏱️</span>
-        <span>Metrónomo</span>
-      </button>
-      <button type="button" class="nav-item" data-tab="estudio">
-        <span class="nav-emoji">🎙️</span>
-        <span>Estudio</span>
-      </button>
+      <div id="unified-tools-menu" class="unified-tools-menu" aria-hidden="true">
+        <div class="tool-menu-section">
+          <div class="tool-menu-title">Cantos y listas</div>
+          <div class="tool-menu-grid">
+            <button type="button" class="tool-menu-btn" data-unified-open="cantoral"><span class="tool-icon">🎵</span><span>Cantoral<span class="tool-sub">Buscar y cargar cantos</span></span></button>
+            <button type="button" class="tool-menu-btn" data-unified-open="listas"><span class="tool-icon">📋</span><span>Listas de cantos<span class="tool-sub">Repertorios de ensayo</span></span></button>
+          </div>
+        </div>
+        <div class="tool-menu-section">
+          <div class="tool-menu-title">Ensayo musical</div>
+          <div class="tool-menu-grid">
+            <button type="button" class="tool-menu-btn" data-unified-open="visor"><span class="tool-icon">📖</span><span>Visor y acordes<span class="tool-sub">Letra, cifrado y diagramas</span></span></button>
+            <button type="button" class="tool-menu-btn" data-unified-open="metronomo"><span class="tool-icon">⏱️</span><span>Metrónomo<span class="tool-sub">Tempo y pulsación</span></span></button>
+          </div>
+        </div>
+        <div class="tool-menu-section">
+          <div class="tool-menu-title">Productividad y apoyo</div>
+          <div class="tool-menu-grid">
+            <button type="button" class="tool-menu-btn" data-unified-open="afinador"><span class="tool-icon">🎯</span><span>Afinador<span class="tool-sub">Afinación por micrófono</span></span></button>
+            <button type="button" class="tool-menu-btn" data-unified-open="tonos"><span class="tool-icon">🎹</span><span>Tonos de referencia<span class="tool-sub">Notas vocales e instrumentales</span></span></button>
+            <button type="button" class="tool-menu-btn" data-unified-open="grabadora"><span class="tool-icon">🎙️</span><span>Grabadora<span class="tool-sub">Registrar y escuchar ensayo</span></span></button>
+            <button type="button" class="tool-menu-btn" data-unified-open="respaldo"><span class="tool-icon">💾</span><span>Respaldo<span class="tool-sub">Exportar o importar cantos</span></span></button>
+          </div>
+        </div>
+      </div>
     </div>
   </nav>
 
-  <!-- ===================================================================== -->
+
   <!-- MODO ATRIL OVERLAY                                                    -->
   <!-- ===================================================================== -->
   <div id="atril-overlay" class="hidden">
@@ -3004,13 +3144,96 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         };
       }
 
+      // Herramientas flotantes: deben existir únicamente dentro del Visor.
+      let activeMiniTools = new Map();
+      function closeAllFloatingTools() {
+        try { stopRefTone(); } catch (e) {}
+        try { if (state.metroRunning) toggleMetronome(); } catch (e) {}
+        try { if (state.tunerRunning) stopTuner(); } catch (e) {}
+        try { if (state.recRunning) stopRecording(); } catch (e) {}
+        ['metronomo','afinador','grabadora','tonos'].forEach(target => {
+          const el = target === 'metronomo' ? document.getElementById('view-metronomo') : document.getElementById(`panel-${target}`);
+          if (el) { el.classList.add('hidden'); el.classList.remove('mini-tool-window','mini-tool-second','drag-floating'); el.style.left=''; el.style.top=''; el.style.right=''; el.style.bottom=''; }
+        });
+        activeMiniTools.clear();
+        const host = document.getElementById('view-estudio');
+        if (host) { host.classList.remove('mini-tools-host'); host.classList.add('hidden'); }
+      }
+
+      function closeMiniTool(target) {
+        const el = activeMiniTools.get(target);
+        if (!el) return;
+        if (target === 'tonos') stopRefTone();
+        if (target === 'metronomo' && state.metroRunning) toggleMetronome();
+        if (target === 'afinador' && state.tunerRunning) stopTuner();
+        if (target === 'grabadora' && state.recRunning) stopRecording();
+        el.classList.add('hidden'); el.classList.remove('mini-tool-window','mini-tool-second','drag-floating');
+        el.style.left=''; el.style.top=''; el.style.right=''; el.style.bottom='';
+        activeMiniTools.delete(target);
+        [...activeMiniTools.values()].forEach((win, idx) => win.classList.toggle('mini-tool-second', idx === 1));
+        const host = document.getElementById('view-estudio');
+        if (![...activeMiniTools.keys()].some(k => ['afinador','grabadora','tonos'].includes(k))) host.classList.remove('mini-tools-host');
+        if (!activeMiniTools.size) host.classList.add('hidden');
+      }
+
+      function openMiniTool(target) {
+        // Keep Visor as the main surface. Two distinct compact tools may remain open simultaneously.
+        if (activeMiniTools.has(target)) return;
+        if (activeMiniTools.size >= 2) { showToast('Puedes mantener abiertas hasta 2 herramientas a la vez. Cierra una para abrir otra.'); return; }
+        ['cantoral','listas','ensayo'].forEach(t => document.getElementById(`view-${t}`).classList.add('hidden'));
+        document.getElementById('view-visor').classList.remove('hidden');
+        let section;
+        if (target === 'metronomo') section = document.getElementById('view-metronomo');
+        else {
+          const host = document.getElementById('view-estudio');
+          host.classList.remove('hidden'); host.classList.add('mini-tools-host');
+          section = document.getElementById(`panel-${target}`);
+          // Don't hide a second floating study tool already open.
+          if (!activeMiniTools.size) showEstudioSub(target); else section.classList.remove('hidden');
+        }
+        section.classList.remove('hidden'); section.classList.add('mini-tool-window');
+        section.classList.toggle('mini-tool-second', activeMiniTools.size === 1);
+        const title = target === 'metronomo' ? '⏱️ Metrónomo' : ({afinador:'🎯 Afinador',grabadora:'🎙️ Grabadora',tonos:'🎹 Tonos de referencia'}[target] || 'Herramienta');
+        let header = section.querySelector('.mini-tool-header');
+        if (!header) { header = document.createElement('div'); header.className='mini-tool-header'; section.prepend(header); }
+        header.innerHTML = `<span class="mini-tool-title">${title}</span><button type="button" class="mini-tool-close" aria-label="Cerrar herramienta">✕</button>`;
+        header.querySelector('.mini-tool-close').onclick = () => closeMiniTool(target);
+        // Ventana flotante movible: el encabezado actúa como agarradera, compatible con mouse y táctil.
+        section.classList.add('drag-floating');
+        header.style.cursor = 'move';
+        header.style.touchAction = 'none';
+        if (!header.dataset.dragBound) {
+          header.dataset.dragBound = '1';
+          header.addEventListener('pointerdown', ev => {
+            if (ev.target.closest('.mini-tool-close')) return;
+            ev.preventDefault();
+            const rect = section.getBoundingClientRect();
+            const startX = ev.clientX, startY = ev.clientY, startLeft = rect.left, startTop = rect.top;
+            header.setPointerCapture?.(ev.pointerId);
+            const move = e => {
+              const left = Math.max(4, Math.min(window.innerWidth - section.offsetWidth - 4, startLeft + (e.clientX - startX)));
+              const top = Math.max(4, Math.min(window.innerHeight - 80, startTop + (e.clientY - startY)));
+              section.style.left = left + 'px'; section.style.top = top + 'px'; section.style.right = 'auto'; section.style.bottom = 'auto';
+            };
+            const up = () => { header.removeEventListener('pointermove', move); header.removeEventListener('pointerup', up); header.removeEventListener('pointercancel', up); };
+            header.addEventListener('pointermove', move); header.addEventListener('pointerup', up); header.addEventListener('pointercancel', up);
+          });
+        }
+        activeMiniTools.set(target, section);
+        state.activeTab = 'visor';
+        if (target === 'grabadora') resizeRecCanvas();
+      }
+
       // ===================================================================
       // 7. NAVIGATION CONTROLLER
       // ===================================================================
       function showTab(tabName) {
+        if (tabName !== 'visor') closeAllFloatingTools();
         state.activeTab = tabName;
-        ['cantoral', 'visor', 'listas', 'metronomo', 'estudio'].forEach(t => {
-          document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tabName);
+        ['cantoral', 'visor', 'listas', 'metronomo', 'estudio', 'ensayo'].forEach(t => {
+          const section = document.getElementById(`view-${t}`);
+          section.classList.remove('mini-tool-window');
+          section.classList.toggle('hidden', t !== tabName);
         });
         document.querySelectorAll('.nav-item').forEach(btn => {
           btn.classList.toggle('active', btn.dataset.tab === tabName);
@@ -4135,6 +4358,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function openVisor(songId, listId = null, listIdx = 0) {
+        closeAllFloatingTools();
         state.visorSongId = songId;
         state.visorListId = listId;
         state.visorListIndex = listIdx;
@@ -4339,6 +4563,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function navigateListStep(delta) {
+        closeAllFloatingTools();
         const activeList = state.visorListId ? state.lists.find(l => l.id === state.visorListId) : null;
         if (!activeList) return;
         const nextIdx = state.visorListIndex + delta;
@@ -4515,34 +4740,49 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         return sr / T0;
       }
 
-      async function toggleTuner() {
+      async function startTuner() {
         const errEl = document.getElementById('tuner-err');
         errEl.classList.add('hidden');
-        if (state.tunerRunning) { stopTuner(); return; }
-
+        if (state.tunerRunning) return true;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          errEl.textContent = 'Micrófono no disponible en este navegador.';
+          errEl.textContent = 'Micrófono no disponible. Abre la aplicación mediante HTTPS y permite el micrófono.';
           errEl.classList.remove('hidden');
-          return;
+          document.getElementById('tuner-status').textContent = 'Micrófono no disponible';
+          return false;
         }
+        let stream = null;
         try {
           const ctx = getAudioCtx();
-          const stream = await navigator.mediaDevices.getUserMedia({
+          if (ctx.state === 'suspended') await ctx.resume();
+          stream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
           });
-          state.tunerStream = stream;
           const src = ctx.createMediaStreamSource(stream);
-          state.tunerAnalyser = ctx.createAnalyser();
-          state.tunerAnalyser.fftSize = 2048;
-          src.connect(state.tunerAnalyser);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 4096;
+          analyser.smoothingTimeConstant = 0;
+          src.connect(analyser);
+          state.tunerStream = stream;
+          state.tunerAnalyser = analyser;
           state.tunerRunning = true;
           document.getElementById('btn-tuner-toggle').textContent = 'Detener Mic';
           document.getElementById('tuner-status').textContent = 'Escuchando...';
           tunerLoop();
+          return true;
         } catch (err) {
-          errEl.textContent = 'Permiso de micrófono denegado o no disponible.';
+          if (stream) stream.getTracks().forEach(t => t.stop());
+          errEl.textContent = (err && err.name === 'NotAllowedError')
+            ? 'Permiso de micrófono denegado. Autoriza el micrófono en el navegador y vuelve a activar Modo Tono.'
+            : 'No se pudo iniciar el micrófono. Comprueba permisos, HTTPS y que no esté ocupado por otra aplicación.';
           errEl.classList.remove('hidden');
+          document.getElementById('tuner-status').textContent = 'Error al iniciar';
+          return false;
         }
+      }
+
+      async function toggleTuner() {
+        if (state.tunerRunning) { stopTuner(); return; }
+        await startTuner();
       }
 
       function stopTuner() {
@@ -4593,70 +4833,110 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         state.tunerRaf = requestAnimationFrame(tunerLoop);
       }
 
-      function renderReferenceToneButtons() {
-        const makeBtns = (list, prefix) => list.map((item, i) => `
-          <button type="button" class="tone-btn" data-ref-key="${prefix}-${i}" data-ref-freq="${item.freq}">
-            <span class="t-main">${item.label}</span>
-            <span class="t-sub">${item.sub}</span>
-          </button>
-        `).join('');
-
-        document.getElementById('guitar-tones-grid').innerHTML = makeBtns(GUITAR_STRINGS, 'g');
-        document.getElementById('vocal-tones-grid').innerHTML = makeBtns(VOCAL_SCALE, 'v');
-
-        document.querySelectorAll('.tone-btn').forEach(btn => {
-          btn.onclick = () => {
-            const key = btn.dataset.refKey;
-            const freq = parseFloat(btn.dataset.refFreq);
-            if (state.refActiveKey === key) { stopRefTone(); return; }
-            playRefTone(freq, key, btn);
-          };
-        });
+      // Generador de tonos aislado del afinador y la grabadora.
+      let refAudioContext = null, refAudioOscillator = null, refAudioGain = null, refAudioKey = null;
+      function getReferenceAudioContext() {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) throw new Error('Web Audio no es compatible con este navegador');
+        if (!refAudioContext || refAudioContext.state === 'closed') refAudioContext = new Ctx();
+        return refAudioContext;
       }
-
-      function playRefTone(freq, key, btnEl) {
-        stopRefTone();
-        const ctx = getAudioCtx();
-        const master = ctx.createGain();
-        master.gain.setValueAtTime(0.001, ctx.currentTime);
-        master.gain.linearRampToValueAtTime(0.24, ctx.currentTime + 0.08);
-        master.connect(ctx.destination);
-
-        const oscs = [
-          { mult: 1, type: 'sine', vol: 0.65 },
-          { mult: 2, type: 'triangle', vol: 0.22 },
-          { mult: 3, type: 'sine', vol: 0.08 }
-        ].map(h => {
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.type = h.type;
-          o.frequency.setValueAtTime(freq * h.mult, ctx.currentTime);
-          g.gain.setValueAtTime(h.vol, ctx.currentTime);
-          o.connect(g);
-          g.connect(master);
-          o.start();
-          return o;
-        });
-
-        state.refNodes = { oscs, master };
-        state.refActiveKey = key;
-        document.getElementById('btn-ref-stop').classList.remove('hidden');
-        btnEl.classList.add('playing');
-      }
-
-      function stopRefTone() {
-        if (state.refNodes && state.audioCtx) {
-          const { oscs, master } = state.refNodes;
-          try {
-            master.gain.linearRampToValueAtTime(0.0001, state.audioCtx.currentTime + 0.06);
-            oscs.forEach(o => o.stop(state.audioCtx.currentTime + 0.08));
-          } catch (e) {}
+      function startReferenceTone(freq, key, label) {
+        stopReferenceTone();
+        const ctx = getReferenceAudioContext();
+        // resume() se invoca de inmediato dentro del gesto de usuario; no se espera
+        // antes de crear/iniciar el oscilador para conservar la activación en Android.
+        if (ctx.state !== 'running') {
+          const resumePromise = ctx.resume();
+          if (resumePromise && typeof resumePromise.catch === 'function') resumePromise.catch(() => {});
         }
-        state.refNodes = null;
-        state.refActiveKey = null;
-        document.getElementById('btn-ref-stop').classList.add('hidden');
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        const now = ctx.currentTime;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(0.18, now + 0.045);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        refAudioOscillator = osc; refAudioGain = gain; refAudioKey = key;
+        document.getElementById('btn-ref-stop')?.classList.remove('hidden');
+        document.querySelectorAll('.tone-btn').forEach(b => b.classList.toggle('playing', b.dataset.refKey === key));
+        const status = document.getElementById('ref-audio-status');
+        if (status) status.textContent = `▶ ${label} · ${freq.toFixed(2)} Hz`;
+        const stopBtn = document.getElementById('btn-ref-stop');
+        if (stopBtn) { stopBtn.classList.remove('hidden'); stopBtn.textContent = '⏹ SILENCIAR';        }
+      }
+      function stopReferenceTone() {
+        if (refAudioOscillator && refAudioContext) {
+          try {
+            const now = refAudioContext.currentTime;
+            refAudioGain.gain.cancelScheduledValues(now);
+            refAudioGain.gain.setValueAtTime(Math.max(0.0001, refAudioGain.gain.value || 0.0001), now);
+            refAudioGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+            refAudioOscillator.stop(now + 0.04);
+          } catch (e) { try { refAudioOscillator.stop(); } catch (_) {} }
+        }
+        refAudioOscillator = null; refAudioGain = null; refAudioKey = null;
+        document.getElementById('btn-ref-stop')?.classList.add('hidden');
+        const status = document.getElementById('ref-audio-status');
+        if (status) status.textContent = 'Audio detenido';
         document.querySelectorAll('.tone-btn.playing').forEach(b => b.classList.remove('playing'));
       }
+      function testReferenceAudio() {
+        try {
+          startReferenceTone(440, 'test-a440', 'La de prueba');
+          const status = document.getElementById('ref-audio-status');
+          if (status) status.textContent = 'La 440 Hz en prueba. Si no se escucha, verifica volumen y salida de audio de la tablet.';
+          showToast('Prueba de audio: La 440 Hz');
+        } catch (err) {
+          const status = document.getElementById('ref-audio-status');
+          if (status) status.textContent = 'Error de audio: ' + (err?.message || 'no se pudo iniciar');
+          showToast('No se pudo iniciar audio: ' + (err?.message || 'error'));
+        }
+      }
+      function renderReferenceToneButtons() {
+        const panel = document.getElementById('panel-tonos');
+        if (!panel || panel.dataset.refWired === '1') return;
+        panel.dataset.refWired = '1';
+        // Assign direct onclick handlers to each visible note button. This avoids
+        // relying on dynamic event registration or bubbling on Android WebView/Chrome.
+        panel.querySelectorAll('.tone-btn[data-ref-freq]').forEach(btn => {
+          btn.style.touchAction = 'manipulation';
+          btn.onclick = function(ev) {
+            if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+            const freq = Number(this.getAttribute('data-ref-freq'));
+            const key = this.getAttribute('data-ref-key') || ('note-' + freq);
+            const label = this.querySelector('.t-main')?.textContent?.trim() || key;
+            if (!Number.isFinite(freq) || freq <= 0) {
+              const status = document.getElementById('ref-audio-status');
+              if (status) status.textContent = 'Error: frecuencia inválida en esta nota';
+              return false;
+            }
+            if (refAudioKey === key) { stopReferenceTone(); return false; }
+            try { startReferenceTone(freq, key, label); }
+            catch (err) {
+              const status = document.getElementById('ref-audio-status');
+              if (status) status.textContent = 'Error al reproducir ' + label + ': ' + (err?.message || err);
+              showToast('No se pudo reproducir ' + label);
+            }
+            return false;
+          };
+        });
+        const stopBtn = document.getElementById('btn-ref-stop');
+        if (stopBtn) {
+          stopBtn.style.touchAction = 'manipulation';
+          stopBtn.onclick = function(ev) { if(ev){ev.preventDefault();ev.stopPropagation();} stopReferenceTone(); return false; };
+        }
+        const testBtn = document.getElementById('btn-ref-test');
+        if (testBtn) {
+          testBtn.style.touchAction = 'manipulation';
+          testBtn.onclick = function(ev) { if(ev){ev.preventDefault();ev.stopPropagation();} testReferenceAudio(); return false; };
+        }
+      }
+      // Alias para mantener compatibilidad con el flujo de navegación existente.
+      function stopRefTone() { stopReferenceTone(); }
+
 
       // Persistencia de grabaciones en IndexedDB (no guardar URLs temporales)
       const REC_DB_NAME = 'CoroLiturgicoStudioAudio';
@@ -4903,10 +5183,57 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.addEventListener('fullscreenchange', updateFullscreenUI);
         document.addEventListener('webkitfullscreenchange', updateFullscreenUI);
 
-        // Bottom Nav
-        document.querySelectorAll('.nav-item').forEach(btn => {
-          btn.onclick = () => showTab(btn.dataset.tab);
+        // Barra única desplegable de herramientas
+        const toolsToggle = document.getElementById('unified-tools-toggle');
+        const toolsMenu = document.getElementById('unified-tools-menu');
+        const closeToolsMenu = () => {
+          toolsMenu.classList.remove('open');
+          toolsToggle.setAttribute('aria-expanded', 'false');
+          toolsMenu.setAttribute('aria-hidden', 'true');
+        };
+        toolsToggle.onclick = () => {
+          const open = toolsMenu.classList.toggle('open');
+          toolsToggle.setAttribute('aria-expanded', String(open));
+          toolsMenu.setAttribute('aria-hidden', String(!open));
+        };
+        document.querySelectorAll('[data-unified-open]').forEach(btn => {
+          btn.onclick = () => {
+            const target = btn.dataset.unifiedOpen;
+            document.querySelectorAll('[data-unified-open]').forEach(b => b.classList.remove('active-tool'));
+            btn.classList.add('active-tool');
+            if (target === 'cantoral' || target === 'listas' || target === 'metronomo' || target === 'visor') showTab(target);
+            else if (target === 'afinador' || target === 'tonos' || target === 'grabadora') { showTab('visor'); openMiniTool(target); }
+            else if (target === 'respaldo') { showTab('cantoral'); document.getElementById('btn-export-json').click(); }
+            closeToolsMenu();
+          };
         });
+        document.addEventListener('click', e => { if (!e.target.closest('.unified-tools-wrap')) closeToolsMenu(); });
+
+        // Ensayo Hub shortcuts: open existing modules without rebuilding their logic
+        document.querySelectorAll('[data-hub-open]').forEach(btn => {
+          btn.onclick = () => {
+            const target = btn.dataset.hubOpen;
+            if (target === 'cantoral' || target === 'listas' || target === 'metronomo' || target === 'visor') { showTab(target); return; }
+            if (target === 'afinador' || target === 'tonos' || target === 'grabadora') { showTab('visor'); openMiniTool(target); }
+          };
+        });
+
+        // Visor: panel derecho abatible para agrupar controles
+        const visorDrawer = document.getElementById('visor-options-drawer');
+        const visorDrawerToggle = document.getElementById('visor-options-toggle');
+        const closeVisorDrawer = () => { visorDrawer.classList.remove('open'); visorDrawerToggle.setAttribute('aria-expanded','false'); visorDrawer.setAttribute('aria-hidden','true'); visorDrawerToggle.textContent = '⚙️ Opciones del Visor'; };
+        visorDrawerToggle.onclick = () => { const opened = visorDrawer.classList.toggle('open'); visorDrawerToggle.setAttribute('aria-expanded', String(opened)); visorDrawer.setAttribute('aria-hidden', String(!opened)); visorDrawerToggle.textContent = opened ? '⚙️ Cerrar opciones' : '⚙️ Opciones del Visor'; };
+        document.getElementById('visor-options-close').onclick = closeVisorDrawer;
+        document.getElementById('btn-visor-open-atril').onclick = () => {
+          closeVisorDrawer();
+          if (!state.visorSongId) { showToast('Selecciona un canto antes de abrir Atril'); return; }
+          openAtril();
+        };
+        document.getElementById('btn-close-atril').onclick = closeAtril;
+        document.querySelectorAll('[data-visor-tool]').forEach(btn => {
+          btn.onclick = () => { const target = btn.dataset.visorTool; closeVisorDrawer(); openMiniTool(target); };
+        });
+        document.addEventListener('click', e => { if (visorDrawer.classList.contains('open') && !e.target.closest('#visor-options-drawer') && !e.target.closest('#visor-options-toggle')) closeVisorDrawer(); });
 
         // Estudio Sub-tabs
         document.getElementById('subtab-afinador').onclick = () => showEstudioSub('afinador');
@@ -4985,8 +5312,6 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           state.scrollSpeed = parseInt(e.target.value, 10);
           document.getElementById('scroll-speed-val').textContent = state.scrollSpeed;
         };
-        document.getElementById('btn-open-atril').onclick = openAtril;
-        document.getElementById('btn-close-atril').onclick = closeAtril;
         document.getElementById('atril-font-dec').onclick = () => {
           state.atrilFontSize = Math.max(14, state.atrilFontSize - 2);
           document.getElementById('atril-sheet').style.fontSize = `${state.atrilFontSize}px`;
@@ -5040,7 +5365,21 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
         // Estudio: Tuner, Tones, Recorder
         document.getElementById('btn-tuner-toggle').onclick = toggleTuner;
-        document.getElementById('btn-ref-stop').onclick = stopRefTone;
+        const toneModeBtn = document.getElementById('btn-tone-mode');
+        const toneModeContent = document.getElementById('tuner-mode-content');
+        toneModeBtn.onclick = async () => {
+          const activating = toneModeContent.classList.contains('hidden');
+          if (activating) {
+            toneModeContent.classList.remove('hidden');
+            toneModeBtn.textContent = '🎹 Desactivar modo Tono';
+            await startTuner();
+          } else {
+            if (state.tunerRunning) stopTuner();
+            toneModeContent.classList.add('hidden');
+            toneModeBtn.textContent = '🎹 Activar modo Tono';
+          }
+        };
+        // Los controles de tonos se enlazan desde renderReferenceToneButtons() con onclick directo.
         document.getElementById('btn-rec-start').onclick = startRecording;
         document.getElementById('btn-rec-stop').onclick = stopRecording;
         window.addEventListener('resize', resizeRecCanvas);
