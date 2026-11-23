@@ -1843,7 +1843,7 @@
 
       <!-- SUB-PANEL 1: AFINADOR CROMÁTICO -->
       <div id="panel-afinador" class="card" style="text-align:center;">
-        <button id="btn-tone-mode" type="button" class="btn btn-primary btn-sm" style="margin-bottom:10px;">🎹 Activar modo Tono</button>
+        <button id="btn-tone-mode" type="button" class="btn btn-primary btn-sm" style="margin-bottom:10px;">🎯 Activar Afinador</button>
         <div id="tuner-mode-content" class="hidden">
         <div class="row-between" style="text-align:left;">
           <div>
@@ -2555,16 +2555,27 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           idbSet('songs', state.songs);
         }
 
-        if (Array.isArray(dbLists) && dbLists.length > 0) {
-          state.lists = dbLists.map(item => ({
-            id: item.id || ('list-' + Date.now() + Math.random()),
-            name: item.name || 'Listado',
-            date: item.date || '',
-            songIds: Array.isArray(item.songIds) ? item.songIds.filter(id => state.songs.some(x => x.id === id)) : []
-          }));
+        // Merge lists from IndexedDB and localStorage; localStorage entries take precedence.
+        let localLists = [];
+        try { const parsed = JSON.parse(localStorage.getItem(STORAGE.LISTS) || '[]'); if (Array.isArray(parsed)) localLists = parsed; } catch (_) {}
+        const normalizeList = item => ({
+          id: item.id || ('list-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7)),
+          name: item.name || 'Listado', date: item.date || '',
+          songIds: Array.isArray(item.songIds) ? item.songIds.filter(id => state.songs.some(x => x.id === id)) : []
+        });
+        const dbNormalized = Array.isArray(dbLists) ? dbLists.map(normalizeList) : [];
+        const localNormalized = localLists.map(normalizeList);
+        const mergedLists = new Map(dbNormalized.map(item => [String(item.id), item]));
+        localNormalized.forEach(item => mergedLists.set(String(item.id), item));
+        if (mergedLists.size) {
+          state.lists = Array.from(mergedLists.values());
           changed = true;
-        } else {
           idbSet('lists', state.lists);
+          try { localStorage.setItem(STORAGE.LISTS, JSON.stringify(state.lists)); } catch (_) {}
+        } else {
+          state.lists = JSON.parse(JSON.stringify(DEFAULT_LISTS));
+          idbSet('lists', state.lists);
+          try { localStorage.setItem(STORAGE.LISTS, JSON.stringify(state.lists)); } catch (_) {}
         }
 
         if (changed) {
@@ -3190,6 +3201,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           section = document.getElementById(`panel-${target}`);
           // Don't hide a second floating study tool already open.
           if (!activeMiniTools.size) showEstudioSub(target); else section.classList.remove('hidden');
+          if (target === 'tonos') renderReferenceToneButtons();
         }
         section.classList.remove('hidden'); section.classList.add('mini-tool-window');
         section.classList.toggle('mini-tool-second', activeMiniTools.size === 1);
@@ -3679,6 +3691,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       // ===================================================================
       function updateListasNavBadge() {
         const badge = document.getElementById('listas-nav-badge');
+        // Este contador no existe en algunas variantes de la interfaz.
+        // Su ausencia nunca debe interrumpir la creación/guardado de listas.
+        if (!badge) return;
         if (state.lists.length > 0) {
           badge.textContent = state.lists.length;
           badge.classList.remove('hidden');
@@ -3794,21 +3809,21 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         });
       }
 
-      // Create or Rename List Modal (ALWAYS accessible)
+      // Create or Rename List Modal (robust form handling)
       function openListMetaModal(listToEdit = null) {
         const isEdit = Boolean(listToEdit);
         openModal(`
           <div class="row-between">
             <div>
               <h3 class="section-title">${isEdit ? '✏️ Renombrar Listado' : '📋 Nuevo Listado'}</h3>
-              <p class="section-desc">${isEdit ? 'Actualiza el nombre o la fecha de tu listado.' : 'Asigna un nombre para organizar tus cantos seleccionados.'}</p>
+              <p class="section-desc">${isEdit ? 'Actualiza el nombre o la fecha de tu listado.' : 'Asigna un nombre para organizar tus cantos.'}</p>
             </div>
-            <button type="button" id="lm-close" class="mini-icon-btn" style="font-size:1.3rem;">&times;</button>
+            <button type="button" id="lm-close" class="mini-icon-btn" aria-label="Cerrar">&times;</button>
           </div>
-          <form id="list-meta-form" style="display:flex; flex-direction:column; gap:12px;">
+          <div id="list-meta-form" style="display:flex; flex-direction:column; gap:12px;">
             <div>
               <label class="field-label" for="lm-name">Nombre del listado *</label>
-              <input id="lm-name" class="input" type="text" required value="${esc(listToEdit ? listToEdit.name : '')}" placeholder="Ej: Misa Dominical, Hora Santa, Ensayo Jueves" />
+              <input id="lm-name" class="input" type="text" value="${esc(listToEdit ? listToEdit.name : '')}" placeholder="Ej: Misa Dominical, Hora Santa, Ensayo Jueves" autocomplete="off" />
             </div>
             <div>
               <label class="field-label" for="lm-date">Fecha o Celebración (opcional)</label>
@@ -3816,45 +3831,93 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             </div>
             <div class="row" style="justify-content:flex-end; margin-top:4px;">
               <button type="button" id="lm-cancel" class="btn btn-secondary btn-sm">Cancelar</button>
-              <button type="submit" class="btn btn-primary btn-sm">${isEdit ? 'Guardar cambios' : 'Crear listado'}</button>
+              <button type="button" id="lm-save" class="btn btn-primary btn-sm">${isEdit ? 'Guardar cambios' : 'Crear listado'}</button>
             </div>
-          </form>
+          </div>
         `);
 
-        document.getElementById('lm-close').onclick = closeModal;
-        document.getElementById('lm-cancel').onclick = closeModal;
         const nameInp = document.getElementById('lm-name');
-        setTimeout(() => nameInp.focus(), 60);
+        const dateInp = document.getElementById('lm-date');
+        const saveBtn = document.getElementById('lm-save');
+        const closeBtn = document.getElementById('lm-close');
+        const cancelBtn = document.getElementById('lm-cancel');
+        if (!nameInp || !dateInp || !saveBtn) { showToast('No se pudo abrir el formulario'); return; }
+        if (closeBtn) closeBtn.onclick = closeModal;
+        if (cancelBtn) cancelBtn.onclick = closeModal;
+        setTimeout(() => nameInp.focus(), 100);
 
-        document.getElementById('list-meta-form').onsubmit = e => {
-          e.preventDefault();
-          const name = nameInp.value.trim();
-          const date = document.getElementById('lm-date').value.trim();
-          if (!name) return;
-
+        let busy = false;
+        const saveList = () => {
+          if (busy) return;
+          const name = (nameInp.value || '').trim();
+          const date = (dateInp.value || '').trim();
+          if (!name) { showToast('Escribe un nombre para el listado'); nameInp.focus(); return; }
+          busy = true;
+          saveBtn.disabled = true;
+          saveBtn.textContent = isEdit ? 'Guardando…' : 'Creando…';
+          const oldLists = JSON.parse(JSON.stringify(state.lists || []));
+          const oldActive = state.activeListId;
+          const candidate = JSON.parse(JSON.stringify(state.lists || []));
+          let activeId = oldActive;
           if (isEdit) {
-            listToEdit.name = name;
-            listToEdit.date = date;
-            saveLists();
-            closeModal();
-            renderListasView();
-            showToast('Listado actualizado');
+            const found = candidate.find(l => String(l.id) === String(listToEdit.id));
+            if (!found) { busy = false; saveBtn.disabled = false; saveBtn.textContent = 'Guardar cambios'; showToast('No se encontró el listado'); return; }
+            found.name = name; found.date = date;
           } else {
-            const newList = {
-              id: 'list-' + Date.now(),
-              name,
-              date,
-              songIds: []
-            };
-            state.lists.push(newList);
-            state.activeListId = newList.id;
-            saveLists();
+            const id = 'list-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+            candidate.push({id, name, date, songIds: []});
+            activeId = id;
+          }
+          const serialized = JSON.stringify(candidate);
+          let persisted = false;
+          // Guardado síncrono: el flujo no espera IndexedDB para cerrar el modal.
+          try {
+            localStorage.setItem(STORAGE.LISTS, serialized);
+            const readBack = JSON.parse(localStorage.getItem(STORAGE.LISTS) || 'null');
+            persisted = Array.isArray(readBack) && readBack.some(l => String(l.id) === String(activeId) && l.name === name);
+          } catch (storageErr) {
+            console.error('Error guardando lista en localStorage:', storageErr);
+          }
+          if (!persisted) {
+            // Respaldo IDB en segundo plano; no deja la interfaz bloqueada.
+            try { idbSet('lists', candidate); } catch (fallbackErr) { console.warn('Respaldo IDB falló', fallbackErr); }
+            state.lists = candidate; state.activeListId = activeId;
+            try {
+              updateListasNavBadge();
+              closeModal();
+              renderListasView();
+              showToast('Lista agregada, pero no se confirmó el guardado local. Revisa almacenamiento y exporta respaldo.');
+            } catch (uiErr) {
+              console.error('Falló la actualización visual tras crear la lista:', uiErr);
+              closeModal();
+              showToast('Lista creada en memoria. Recarga la vista de Listas.');
+            } finally {
+              busy = false;
+            }
+            return;
+          }
+          state.lists = candidate; state.activeListId = activeId;
+          // Copia secundaria de IndexedDB no bloqueante.
+          try { idbSet('lists', candidate); } catch (e) { console.warn('Copia IndexedDB omitida', e); }
+          // Liberar siempre el botón, incluso si falla una actualización visual.
+          try {
+            updateListasNavBadge();
             closeModal();
             renderListasView();
-            showToast(`Listado "${name}" creado`);
+            showToast(isEdit ? 'Listado guardado' : `Listado \"${name}\" creado`);
+          } catch (uiErr) {
+            console.error('Lista guardada; falló la actualización visual:', uiErr);
+            closeModal();
+            showToast('Lista guardada. Recarga la vista de Listas para verla.');
+          } finally {
+            busy = false;
           }
         };
+        saveBtn.onclick = e => { e.preventDefault(); saveList(); };
+        nameInp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveList(); } };
+        dateInp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveList(); } };
       }
+
 
       // Interactive Multi-Select Song Picker Modal (ALWAYS accessible)
       function openSongPickerModal() {
@@ -4833,51 +4896,153 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         state.tunerRaf = requestAnimationFrame(tunerLoop);
       }
 
-      // Generador de tonos aislado del afinador y la grabadora.
-      let refAudioContext = null, refAudioOscillator = null, refAudioGain = null, refAudioKey = null;
+      // Generador de tonos aislado del afinador y la grabadora (Web Audio + respaldo WAV HTML5).
+      let refAudioContext = null, refAudioOscillator = null, refAudioHarmonic = null, refAudioGain = null, refAudioKey = null, refLastPressTs = 0;
+      let refHtmlAudio = null, refHtmlBlobUrl = null;
       function getReferenceAudioContext() {
         const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) throw new Error('Web Audio no es compatible con este navegador');
+        if (!Ctx) return null;
         if (!refAudioContext || refAudioContext.state === 'closed') refAudioContext = new Ctx();
         return refAudioContext;
       }
+      function buildToneWavBlobUrl(freq) {
+        const sampleRate = 22050;
+        const cycles = Math.max(1, Math.round(freq * 2));
+        const numSamples = Math.max(2205, Math.round((cycles / freq) * sampleRate));
+        const buffer = new ArrayBuffer(44 + numSamples * 2);
+        const view = new DataView(buffer);
+        const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+        writeStr(0, 'RIFF');
+        view.setUint32(4, 36 + numSamples * 2, true);
+        writeStr(8, 'WAVE');
+        writeStr(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeStr(36, 'data');
+        view.setUint32(40, numSamples * 2, true);
+        const harmWeight = freq < 180 ? 0.25 : 0.12;
+        for (let i = 0; i < numSamples; i++) {
+          const t = i / sampleRate;
+          const phase = 2 * Math.PI * freq * t;
+          const sample = (Math.sin(phase) + harmWeight * Math.sin(2 * phase)) * 0.42;
+          view.setInt16(44 + i * 2, Math.max(-32767, Math.min(32767, Math.round(sample * 32767))), true);
+        }
+        return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+      }
+      function playHtmlFallbackTone(freq, key, label) {
+        try {
+          if (refHtmlAudio) { try { refHtmlAudio.pause(); } catch (_) {} }
+          if (refHtmlBlobUrl) { try { URL.revokeObjectURL(refHtmlBlobUrl); } catch (_) {} }
+          refHtmlBlobUrl = buildToneWavBlobUrl(freq);
+          const a = new Audio(refHtmlBlobUrl);
+          a.loop = true;
+          a.volume = 0.85;
+          refHtmlAudio = a;
+          const p = a.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => {
+              const st = document.getElementById('ref-audio-status');
+              if (st && refAudioKey === key) st.textContent = `▶ ${label} · ${freq.toFixed(2)} Hz (activo)`;
+            }).catch(() => {});
+          }
+        } catch (e) {}
+      }
       function startReferenceTone(freq, key, label) {
         stopReferenceTone();
-        const ctx = getReferenceAudioContext();
-        // resume() se invoca de inmediato dentro del gesto de usuario; no se espera
-        // antes de crear/iniciar el oscilador para conservar la activación en Android.
-        if (ctx.state !== 'running') {
-          const resumePromise = ctx.resume();
-          if (resumePromise && typeof resumePromise.catch === 'function') resumePromise.catch(() => {});
+        refAudioKey = key;
+        let webAudioStarted = false;
+        try {
+          const ctx = getReferenceAudioContext();
+          if (ctx) {
+            if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+              ctx.resume().catch(() => {});
+            }
+            const now = ctx.currentTime;
+            const masterGain = ctx.createGain();
+            masterGain.gain.setValueAtTime(0.0001, now);
+            masterGain.gain.linearRampToValueAtTime(0.24, now + 0.035);
+            masterGain.connect(ctx.destination);
+
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.connect(masterGain);
+
+            const harm = ctx.createOscillator();
+            const harmGain = ctx.createGain();
+            harm.type = 'triangle';
+            harm.frequency.setValueAtTime(freq * 2, now);
+            harmGain.gain.setValueAtTime(freq < 180 ? 0.16 : 0.07, now);
+            harm.connect(harmGain);
+            harmGain.connect(masterGain);
+
+            osc.start(now);
+            harm.start(now);
+
+            refAudioOscillator = osc;
+            refAudioHarmonic = harm;
+            refAudioGain = masterGain;
+            webAudioStarted = true;
+
+            if (ctx.state !== 'running') {
+              playHtmlFallbackTone(freq, key, label);
+              if (typeof ctx.resume === 'function') {
+                ctx.resume().then(() => {
+                  if (ctx.state === 'running' && refAudioKey === key && refHtmlAudio) {
+                    try { refHtmlAudio.pause(); } catch (_) {}
+                    const st = document.getElementById('ref-audio-status');
+                    if (st) st.textContent = `▶ ${label} · ${freq.toFixed(2)} Hz (activo)`;
+                  }
+                }).catch(() => {});
+              }
+            }
+          }
+        } catch (e) {
+          webAudioStarted = false;
         }
-        const osc = ctx.createOscillator(), gain = ctx.createGain();
-        const now = ctx.currentTime;
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.linearRampToValueAtTime(0.18, now + 0.045);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now);
-        refAudioOscillator = osc; refAudioGain = gain; refAudioKey = key;
-        document.getElementById('btn-ref-stop')?.classList.remove('hidden');
+
+        if (!webAudioStarted) {
+          playHtmlFallbackTone(freq, key, label);
+        }
+
         document.querySelectorAll('.tone-btn').forEach(b => b.classList.toggle('playing', b.dataset.refKey === key));
         const status = document.getElementById('ref-audio-status');
-        if (status) status.textContent = `▶ ${label} · ${freq.toFixed(2)} Hz`;
+        if (status) status.textContent = `▶ ${label} · ${freq.toFixed(2)} Hz (activo)`;
         const stopBtn = document.getElementById('btn-ref-stop');
-        if (stopBtn) { stopBtn.classList.remove('hidden'); stopBtn.textContent = '⏹ SILENCIAR';        }
+        if (stopBtn) { stopBtn.classList.remove('hidden'); stopBtn.textContent = '⏹ SILENCIAR'; }
       }
       function stopReferenceTone() {
-        if (refAudioOscillator && refAudioContext) {
+        if (refHtmlAudio) {
+          try { refHtmlAudio.pause(); refHtmlAudio.currentTime = 0; } catch (_) {}
+          refHtmlAudio = null;
+        }
+        if (refHtmlBlobUrl) {
+          try { URL.revokeObjectURL(refHtmlBlobUrl); } catch (_) {}
+          refHtmlBlobUrl = null;
+        }
+        if (refAudioGain && refAudioContext) {
           try {
             const now = refAudioContext.currentTime;
             refAudioGain.gain.cancelScheduledValues(now);
             refAudioGain.gain.setValueAtTime(Math.max(0.0001, refAudioGain.gain.value || 0.0001), now);
-            refAudioGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
-            refAudioOscillator.stop(now + 0.04);
-          } catch (e) { try { refAudioOscillator.stop(); } catch (_) {} }
+            refAudioGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+          } catch (e) {}
         }
-        refAudioOscillator = null; refAudioGain = null; refAudioKey = null;
+        [refAudioOscillator, refAudioHarmonic].forEach(o => {
+          if (!o) return;
+          try { o.stop((refAudioContext ? refAudioContext.currentTime : 0) + 0.035); }
+          catch (e) { try { o.stop(); } catch (_) {} }
+          try { o.disconnect(); } catch (_) {}
+        });
+        refAudioOscillator = null;
+        refAudioHarmonic = null;
+        refAudioGain = null;
+        refAudioKey = null;
         document.getElementById('btn-ref-stop')?.classList.add('hidden');
         const status = document.getElementById('ref-audio-status');
         if (status) status.textContent = 'Audio detenido';
@@ -4887,7 +5052,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         try {
           startReferenceTone(440, 'test-a440', 'La de prueba');
           const status = document.getElementById('ref-audio-status');
-          if (status) status.textContent = 'La 440 Hz en prueba. Si no se escucha, verifica volumen y salida de audio de la tablet.';
+          if (status) status.textContent = 'La 440 Hz en prueba. Si no se escucha, verifica volumen multimedia y salida de audio.';
           showToast('Prueba de audio: La 440 Hz');
         } catch (err) {
           const status = document.getElementById('ref-audio-status');
@@ -4895,32 +5060,37 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           showToast('No se pudo iniciar audio: ' + (err?.message || 'error'));
         }
       }
+      function handleToneButtonPress(btn, ev) {
+        const nowTs = Date.now();
+        if (nowTs - refLastPressTs < 180) return false;
+        refLastPressTs = nowTs;
+        if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+        const freq = Number(btn.getAttribute('data-ref-freq'));
+        const key = btn.getAttribute('data-ref-key') || ('note-' + freq);
+        const label = btn.querySelector('.t-main')?.textContent?.trim() || key;
+        if (!Number.isFinite(freq) || freq <= 0) {
+          const status = document.getElementById('ref-audio-status');
+          if (status) status.textContent = 'Error: frecuencia inválida en esta nota';
+          return false;
+        }
+        if (refAudioKey === key) { stopReferenceTone(); return false; }
+        try { startReferenceTone(freq, key, label); }
+        catch (err) {
+          const status = document.getElementById('ref-audio-status');
+          if (status) status.textContent = 'Error al reproducir ' + label + ': ' + (err?.message || err);
+          showToast('No se pudo reproducir ' + label);
+        }
+        return false;
+      }
       function renderReferenceToneButtons() {
         const panel = document.getElementById('panel-tonos');
         if (!panel || panel.dataset.refWired === '1') return;
         panel.dataset.refWired = '1';
-        // Assign direct onclick handlers to each visible note button. This avoids
-        // relying on dynamic event registration or bubbling on Android WebView/Chrome.
         panel.querySelectorAll('.tone-btn[data-ref-freq]').forEach(btn => {
           btn.style.touchAction = 'manipulation';
-          btn.onclick = function(ev) {
-            if (ev) { ev.preventDefault(); ev.stopPropagation(); }
-            const freq = Number(this.getAttribute('data-ref-freq'));
-            const key = this.getAttribute('data-ref-key') || ('note-' + freq);
-            const label = this.querySelector('.t-main')?.textContent?.trim() || key;
-            if (!Number.isFinite(freq) || freq <= 0) {
-              const status = document.getElementById('ref-audio-status');
-              if (status) status.textContent = 'Error: frecuencia inválida en esta nota';
-              return false;
-            }
-            if (refAudioKey === key) { stopReferenceTone(); return false; }
-            try { startReferenceTone(freq, key, label); }
-            catch (err) {
-              const status = document.getElementById('ref-audio-status');
-              if (status) status.textContent = 'Error al reproducir ' + label + ': ' + (err?.message || err);
-              showToast('No se pudo reproducir ' + label);
-            }
-            return false;
+          btn.onclick = function(ev) { return handleToneButtonPress(this, ev); };
+          btn.onkeydown = function(ev) {
+            if (ev && (ev.key === 'Enter' || ev.key === ' ')) return handleToneButtonPress(this, ev);
           };
         });
         const stopBtn = document.getElementById('btn-ref-stop');
@@ -5371,12 +5541,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           const activating = toneModeContent.classList.contains('hidden');
           if (activating) {
             toneModeContent.classList.remove('hidden');
-            toneModeBtn.textContent = '🎹 Desactivar modo Tono';
+            toneModeBtn.textContent = '🎯 Desactivar Afinador';
             await startTuner();
           } else {
             if (state.tunerRunning) stopTuner();
             toneModeContent.classList.add('hidden');
-            toneModeBtn.textContent = '🎹 Activar modo Tono';
+            toneModeBtn.textContent = '🎯 Activar Afinador';
           }
         };
         // Los controles de tonos se enlazan desde renderReferenceToneButtons() con onclick directo.
