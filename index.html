@@ -1032,6 +1032,15 @@
       font-weight: 800;
       letter-spacing: .025em;
     }
+
+    /* Atril 3.0: zoom táctil con dos dedos */
+    #atril-overlay #atril-sheet { touch-action: pan-y; transform-origin: top center; }
+    #atril-overlay #atril-scroll-area { overscroll-behavior: contain; }
+    #atril-zoom-hint {
+      display: block; text-align: center; color: #aeb9ca;
+      font-size: .72rem; padding: 4px 8px 8px;
+      user-select: none; pointer-events: none;
+    }
     #atril-overlay .atril-btn:disabled {
       opacity: .38;
       cursor: not-allowed;
@@ -2431,6 +2440,7 @@
       </div>
     </div>
 
+    <div id="atril-zoom-hint">Usa dos dedos para ampliar o reducir la letra</div>
     <div id="atril-scroll-area" class="atril-scroll-area">
       <div id="atril-sheet" style="font-size:20px;"></div>
     </div>
@@ -6165,9 +6175,40 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           document.getElementById('atril-sheet').style.fontSize = `${state.atrilFontSize}px`;
         };
         document.getElementById('atril-font-inc').onclick = () => {
-          state.atrilFontSize = Math.min(34, state.atrilFontSize + 2);
+          state.atrilFontSize = Math.min(42, state.atrilFontSize + 2);
           document.getElementById('atril-sheet').style.fontSize = `${state.atrilFontSize}px`;
         };
+
+        // Zoom con gesto de pellizco: dos dedos amplían o reducen la letra.
+        const atrilSheet = document.getElementById('atril-sheet');
+        let pinchStartDistance = 0;
+        let pinchStartFontSize = state.atrilFontSize;
+        const getPinchDistance = touches => {
+          const dx = touches[0].clientX - touches[1].clientX;
+          const dy = touches[0].clientY - touches[1].clientY;
+          return Math.hypot(dx, dy);
+        };
+        atrilSheet.addEventListener('touchstart', event => {
+          if (event.touches.length === 2) {
+            pinchStartDistance = getPinchDistance(event.touches);
+            pinchStartFontSize = state.atrilFontSize;
+          }
+        }, { passive: true });
+        atrilSheet.addEventListener('touchmove', event => {
+          if (event.touches.length !== 2 || !pinchStartDistance) return;
+          event.preventDefault();
+          const scale = getPinchDistance(event.touches) / pinchStartDistance;
+          const nextSize = Math.max(14, Math.min(42, Math.round(pinchStartFontSize * scale)));
+          if (nextSize !== state.atrilFontSize) {
+            state.atrilFontSize = nextSize;
+            atrilSheet.style.fontSize = `${nextSize}px`;
+          }
+        }, { passive: false });
+        const endAtrilPinch = event => {
+          if (event.touches.length < 2) pinchStartDistance = 0;
+        };
+        atrilSheet.addEventListener('touchend', endAtrilPinch, { passive: true });
+        atrilSheet.addEventListener('touchcancel', endAtrilPinch, { passive: true });
         document.getElementById('atril-scroll-btn').onclick = () => toggleAutoScroll();
         document.getElementById('atril-scroll-btn').setAttribute('aria-pressed', String(state.scrollActive));
 
