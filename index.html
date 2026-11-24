@@ -2020,6 +2020,49 @@
     @media (max-width: 380px) {
       .lyric-line, .lyric-txt { font-size: 1.02rem; line-height: 1.7; }
     }
+
+    /* CLS 6.0 · primera etapa visual: menú flotante compacto */
+    .unified-tools-nav {
+      left: auto !important;
+      right: max(12px, env(safe-area-inset-right)) !important;
+      bottom: max(10px, env(safe-area-inset-bottom)) !important;
+      width: auto !important;
+      max-width: min(440px, calc(100vw - 24px));
+      padding: 0 !important;
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+    }
+    .unified-tools-wrap { width: auto; max-width: none; }
+    .unified-tools-toggle {
+      width: auto;
+      min-width: 132px;
+      min-height: 46px;
+      gap: 16px;
+      padding: 0 15px;
+      border-radius: 999px;
+      box-shadow: 0 7px 24px rgba(0,0,0,.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .unified-tools-toggle .toggle-left { gap: 8px; }
+    .unified-tools-menu {
+      left: auto;
+      right: 0;
+      width: min(420px, calc(100vw - 24px));
+      max-height: min(72vh, 590px);
+      border-radius: 18px;
+    }
+    body { padding-bottom: 76px !important; }
+    @media (max-width: 420px) {
+      .unified-tools-nav { right: 10px !important; bottom: max(9px, env(safe-area-inset-bottom)) !important; }
+      .unified-tools-toggle { min-height: 44px; }
+      .unified-tools-menu { width: min(390px, calc(100vw - 20px)); }
+    }
+    @media (min-width: 900px) {
+      .unified-tools-nav { right: 22px !important; bottom: 18px !important; }
+      .unified-tools-menu { width: 420px; }
+    }
   </style>
 </head>
 <body>
@@ -2508,8 +2551,8 @@
   <!-- BARRA ÚNICA: acceso a cantos, ensayo y productividad -->
   <nav class="unified-tools-nav" aria-label="Barra única de herramientas">
     <div class="unified-tools-wrap">
-      <button type="button" id="unified-tools-toggle" class="unified-tools-toggle" aria-expanded="false" aria-controls="unified-tools-menu">
-        <span class="toggle-left"><span style="font-size:1.35rem">☰</span><span>Herramientas y repertorio</span></span>
+      <button type="button" id="unified-tools-toggle" class="unified-tools-toggle" aria-label="Abrir menú de herramientas y repertorio" aria-expanded="false" aria-controls="unified-tools-menu">
+        <span class="toggle-left"><span style="font-size:1.2rem">☰</span><span>Menú</span></span>
         <span class="toggle-arrow">⌃</span>
       </button>
       <div id="unified-tools-menu" class="unified-tools-menu" aria-hidden="true">
