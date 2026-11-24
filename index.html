@@ -1579,14 +1579,17 @@
       </div>
 
       <!-- Count + Backup (Admin) -->
-      <div class="row-between" style="font-size:0.78rem; color:var(--text-muted); padding:0 2px;">
-        <span id="songs-count-txt">0 cantos</span>
+      <div class="row-between" style="font-size:0.78rem; color:var(--text-muted); padding:0 2px; flex-wrap:wrap; gap:8px;">
+        <span id="songs-count-txt">0 cantos en repertorio</span>
+        <div class="row" style="gap:6px; align-items:center; flex-wrap:wrap;">
+          <button id="cantoral-sort-toggle" type="button" class="btn btn-secondary btn-sm" aria-label="Cambiar orden del repertorio">🔤 Orden A–Z</button>
         <div id="cantoral-backup-bar" class="row hidden" style="gap:6px;">
           <button id="btn-export-json" type="button" class="btn btn-secondary btn-sm">Exportar JSON</button>
           <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
             Importar JSON
             <input id="input-import-json" type="file" accept=".json,application/json" class="hidden" />
           </label>
+        </div>
         </div>
       </div>
 
@@ -3267,11 +3270,27 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         ).join('');
       }
 
+      // Orden del Cantoral: registro original o alfabético A-Z.
+      let cantoralSortMode = 'registro';
       function renderSongsList() {
         const list = document.getElementById('songs-list');
         const q = state.searchQuery.trim().toLowerCase();
+        const sortControl = document.getElementById('cantoral-sort-toggle');
+        if (sortControl) {
+          sortControl.textContent = cantoralSortMode === 'alfabetico' ? '↕ Orden de registro' : '🔤 Orden A–Z';
+          sortControl.title = cantoralSortMode === 'alfabetico' ? 'Cambiar a orden de registro' : 'Ordenar alfabéticamente';
+          sortControl.onclick = () => {
+            cantoralSortMode = cantoralSortMode === 'alfabetico' ? 'registro' : 'alfabetico';
+            renderSongsList();
+          };
+        }
+        const orderedSongs = [...state.songs];
+        if (cantoralSortMode === 'alfabetico') {
+          orderedSongs.sort((a, b) => (a.title || '').localeCompare((b.title || ''), 'es', { sensitivity: 'base' }));
+        }
+        const songNumbers = new Map(orderedSongs.map((song, index) => [song.id, index + 1]));
 
-        const filtered = state.songs.filter(s => {
+        const filtered = orderedSongs.filter(s => {
           const mOk = state.filterMoment === 'Todos' || s.moment === state.filterMoment;
           const tOk = state.filterSeason === 'Todos' || s.season === state.filterSeason;
           const qOk = !q ||
@@ -3284,7 +3303,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         });
 
         document.getElementById('songs-count-txt').textContent =
-          `${filtered.length} ${filtered.length === 1 ? 'canto' : 'cantos'}`;
+          `${state.songs.length} ${state.songs.length === 1 ? 'canto en repertorio' : 'cantos en repertorio'}`;
 
         if (filtered.length === 0) {
           list.innerHTML = `<div class="empty-state">No se encontraron cantos con esos filtros.</div>`;
@@ -3302,6 +3321,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             <div class="song-card">
               <button type="button" class="song-card-main" data-open-song="${s.id}">
                 <div class="song-card-meta">
+                  <span class="badge" style="font-weight:800; min-width:26px; text-align:center;">${songNumbers.get(s.id) || ''}</span>
                   <span class="badge">${esc(s.moment)}</span>
                   <span class="badge-neutral">${esc(s.season || 'Ordinario')}</span>
                   <span>Tono <strong>${esc(s.key)}</strong></span>
