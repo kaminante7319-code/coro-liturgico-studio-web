@@ -2020,50 +2020,76 @@
     @media (max-width: 380px) {
       .lyric-line, .lyric-txt { font-size: 1.02rem; line-height: 1.7; }
     }
-
-    /* CLS 6.0 · primera etapa visual: menú flotante compacto */
-    .unified-tools-nav {
-      left: auto !important;
-      right: max(12px, env(safe-area-inset-right)) !important;
-      bottom: max(10px, env(safe-area-inset-bottom)) !important;
-      width: auto !important;
-      max-width: min(440px, calc(100vw - 24px));
-      padding: 0 !important;
-      background: transparent !important;
-      border: 0 !important;
-      box-shadow: none !important;
-    }
-    .unified-tools-wrap { width: auto; max-width: none; }
-    .unified-tools-toggle {
-      width: auto;
-      min-width: 132px;
-      min-height: 46px;
-      gap: 16px;
-      padding: 0 15px;
-      border-radius: 999px;
-      box-shadow: 0 7px 24px rgba(0,0,0,.18);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-    }
-    .unified-tools-toggle .toggle-left { gap: 8px; }
-    .unified-tools-menu {
-      left: auto;
-      right: 0;
-      width: min(420px, calc(100vw - 24px));
-      max-height: min(72vh, 590px);
-      border-radius: 18px;
-    }
-    body { padding-bottom: 76px !important; }
-    @media (max-width: 420px) {
-      .unified-tools-nav { right: 10px !important; bottom: max(9px, env(safe-area-inset-bottom)) !important; }
-      .unified-tools-toggle { min-height: 44px; }
-      .unified-tools-menu { width: min(390px, calc(100vw - 20px)); }
-    }
-    @media (min-width: 900px) {
-      .unified-tools-nav { right: 22px !important; bottom: 18px !important; }
-      .unified-tools-menu { width: 420px; }
-    }
   </style>
+
+<style id="cls-interface-6-0">
+/* ================================================================
+   CORO LITURGICO STUDIO 6.0 — REDISEÑO VISUAL COMPACTO
+   Capa visual: conserva estructura, IDs, eventos y lógica de 5.1
+   ================================================================ */
+:root{
+ --primary:#635bdb;--primary-hover:#5148c8;--primary-soft:rgba(99,91,219,.10);
+ --primary-border:rgba(99,91,219,.25);--primary-contrast:#fff;
+ --bg:#f4f6fb;--surface:#fff;--surface-2:#edf0f7;--surface-glass:rgba(255,255,255,.90);
+ --border:rgba(31,41,71,.09);--text:#172033;--text-muted:#68738a;
+ --shadow:0 5px 18px rgba(27,39,75,.055),0 1px 3px rgba(27,39,75,.04);
+ --shadow-float:0 18px 48px rgba(25,31,65,.18);--radius:15px;--radius-sm:10px;
+ --header-h:56px;--nav-h:54px;
+}
+html{background:var(--bg)} body{background:linear-gradient(145deg,#f7f8fc 0%,#f1f3fa 58%,#eef1f9 100%);color:var(--text)}
+.top-bar{height:var(--header-h);background:rgba(250,251,255,.88);border-bottom:1px solid rgba(99,91,219,.12);box-shadow:0 2px 16px rgba(25,31,65,.035)}
+.top-bar-inner{width:min(100%,1440px);padding:0 18px;gap:12px}
+.brand{gap:10px}.brand-icon{width:36px;height:36px;border-radius:11px;overflow:hidden;box-shadow:0 4px 12px rgba(99,91,219,.18)}
+.brand-name,.brand-title{letter-spacing:-.035em;font-weight:800}
+.top-bar .btn,.top-bar button{min-height:34px;border-radius:10px;font-size:.78rem;padding:6px 10px}
+#app-shell{width:min(100%,1440px);margin:var(--header-h) auto 0;padding:18px 20px calc(var(--nav-h) + 34px)}
+.view-section{gap:12px;padding:8px 4px 18px}
+.card{border-radius:15px;padding:15px;border:1px solid rgba(45,55,90,.075);box-shadow:0 4px 16px rgba(27,39,75,.045)}
+.section-title{font-weight:800;letter-spacing:-.035em}
+.section-desc,.field-label{color:var(--text-muted)}
+.input,.select,textarea{border:1px solid rgba(70,80,120,.15);border-radius:11px;background:rgba(255,255,255,.92);min-height:42px;box-shadow:inset 0 1px 2px rgba(20,30,60,.025)}
+.input:focus,.select:focus,textarea:focus{outline:3px solid rgba(99,91,219,.12);border-color:var(--primary)}
+.btn{border-radius:10px;font-weight:650;letter-spacing:-.01em;transition:transform .16s ease,box-shadow .16s ease,background .16s ease}
+.btn-primary{box-shadow:0 4px 12px rgba(99,91,219,.18)}
+.btn:active,.tool-menu-btn:active{transform:scale(.98)}
+.info-notice,.admin-banner{border-radius:12px;padding:9px 12px;font-size:.78rem}
+.unified-tools-nav{left:50%;right:auto;bottom:12px;transform:translateX(-50%);width:min(460px,calc(100% - 28px));padding:6px 7px calc(6px + env(safe-area-inset-bottom));background:rgba(20,25,46,.94);border:1px solid rgba(255,255,255,.12);border-radius:17px;box-shadow:0 12px 38px rgba(20,25,46,.25);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.unified-tools-wrap{width:100%;max-width:none}
+.unified-tools-toggle{width:100%;min-height:42px;border:0!important;border-radius:11px!important;background:linear-gradient(110deg,#655de0,#4e67c9)!important;color:#fff!important;padding:8px 14px!important;font-weight:750;box-shadow:0 4px 14px rgba(75,83,195,.28)}
+.unified-tools-toggle .toggle-left{gap:10px}.unified-tools-toggle .toggle-left>span:first-child{font-size:1.05rem!important}
+.unified-tools-toggle .toggle-arrow{color:rgba(255,255,255,.8)}
+.unified-tools-menu{position:absolute;left:0;right:0;bottom:calc(100% + 10px);width:100%;max-height:min(70vh,620px);overflow:auto;padding:13px;background:rgba(249,250,255,.98);border:1px solid rgba(99,91,219,.15);border-radius:18px;box-shadow:0 18px 55px rgba(24,31,64,.22);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.tool-menu-section{padding:4px 2px 10px;margin:0 0 8px;border-bottom:1px solid rgba(70,80,120,.10)}.tool-menu-section:last-child{border:0;margin:0;padding-bottom:2px}
+.tool-menu-title{font-size:.66rem!important;letter-spacing:.12em;text-transform:uppercase;font-weight:850!important;color:#7a80a0!important;margin:0 0 8px;padding:0 5px}
+.tool-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.tool-menu-btn{min-height:58px!important;display:flex;align-items:center;gap:10px;text-align:left;padding:9px 10px!important;border:1px solid rgba(75,83,130,.10)!important;border-radius:12px!important;background:#fff!important;color:#202944!important;box-shadow:0 2px 7px rgba(28,36,70,.035)}
+.tool-menu-btn:hover{border-color:rgba(99,91,219,.32)!important;background:#f7f7ff!important}
+.tool-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:#f0efff;font-size:1.05rem!important}
+.tool-menu-btn>span:last-child{font-size:.79rem;font-weight:750;line-height:1.2}.tool-sub{display:block;margin-top:3px;font-size:.65rem!important;font-weight:450!important;color:#788198!important}
+#songs-list{gap:8px!important}
+#songs-list>.card,#songs-list>div{border-radius:13px}
+.visor-options-drawer{border-radius:16px 0 0 16px;box-shadow:-12px 0 36px rgba(22,30,60,.13)}
+@media(min-width:900px){
+ #app-shell{padding:22px 30px calc(var(--nav-h) + 38px)}
+ .view-section{max-width:1120px;margin:0 auto;width:100%}
+ .unified-tools-nav{width:430px;bottom:18px}
+ .tool-menu-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ :root{--header-h:52px}
+ .top-bar-inner{padding:0 10px;gap:7px}.brand-icon{width:32px;height:32px}
+ #app-shell{padding:12px 10px calc(var(--nav-h) + 30px)}
+ .view-section{padding:5px 1px 14px;gap:10px}
+ .card{padding:12px;border-radius:13px}
+ .unified-tools-nav{bottom:8px;width:calc(100% - 20px);border-radius:15px}
+ .unified-tools-menu{padding:10px;border-radius:15px;max-height:68vh}
+ .tool-menu-btn{min-height:54px!important;padding:8px!important;gap:8px}
+ .tool-icon{width:30px;height:30px;flex-basis:30px}
+ .tool-menu-btn>span:last-child{font-size:.74rem}.tool-sub{font-size:.61rem!important}
+}
+@media(prefers-reduced-motion:reduce){.btn,.tool-menu-btn{transition:none}}
+
+</style>
 </head>
 <body>
 
@@ -2551,8 +2577,8 @@
   <!-- BARRA ÚNICA: acceso a cantos, ensayo y productividad -->
   <nav class="unified-tools-nav" aria-label="Barra única de herramientas">
     <div class="unified-tools-wrap">
-      <button type="button" id="unified-tools-toggle" class="unified-tools-toggle" aria-label="Abrir menú de herramientas y repertorio" aria-expanded="false" aria-controls="unified-tools-menu">
-        <span class="toggle-left"><span style="font-size:1.2rem">☰</span><span>Menú</span></span>
+      <button type="button" id="unified-tools-toggle" class="unified-tools-toggle" aria-expanded="false" aria-controls="unified-tools-menu">
+        <span class="toggle-left"><span style="font-size:1.35rem">☰</span><span>Herramientas y repertorio</span></span>
         <span class="toggle-arrow">⌃</span>
       </button>
       <div id="unified-tools-menu" class="unified-tools-menu" aria-hidden="true">
