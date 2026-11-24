@@ -2501,7 +2501,8 @@
         SHOW_CHORDS: 'cls_v6_show_chords',
         TWO_COLS: 'cls_v6_two_cols',
         ADMIN_PIN: 'cls_v6_admin_pin',
-        CLOUD_CFG: 'cls_v6_cloud_cfg'
+        CLOUD_CFG: 'cls_v6_cloud_cfg',
+        ATRIL_PREFS: 'cls_v6_atril_prefs'
       };
 
       const DEFAULT_ADMIN_PIN = '1234';
@@ -2842,6 +2843,28 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
       }
 
+      function saveAtrilPrefs() {
+        try {
+          localStorage.setItem(STORAGE.ATRIL_PREFS, JSON.stringify({
+            fontSize: state.atrilFontSize,
+            scrollSpeed: state.scrollSpeed,
+            showChords: state.showChords,
+            twoCols: state.twoCols
+          }));
+        } catch (e) {}
+      }
+
+      function loadAtrilPrefs() {
+        try {
+          const prefs = JSON.parse(localStorage.getItem(STORAGE.ATRIL_PREFS) || 'null');
+          if (!prefs || typeof prefs !== 'object') return;
+          if (Number.isFinite(Number(prefs.fontSize))) state.atrilFontSize = Math.max(14, Math.min(42, Number(prefs.fontSize)));
+          if (Number.isFinite(Number(prefs.scrollSpeed))) state.scrollSpeed = Math.max(1, Math.min(10, Number(prefs.scrollSpeed)));
+          if (typeof prefs.showChords === 'boolean') state.showChords = prefs.showChords;
+          if (typeof prefs.twoCols === 'boolean') state.twoCols = prefs.twoCols;
+        } catch (e) {}
+      }
+
       function loadStorage() {
         try {
           const pin = localStorage.getItem(STORAGE.ADMIN_PIN);
@@ -2862,6 +2885,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           const tc = localStorage.getItem(STORAGE.TWO_COLS);
           if (tc !== null) state.twoCols = tc === 'true';
         } catch (e) {}
+
+        loadAtrilPrefs();
 
         try {
           const s = JSON.parse(localStorage.getItem(STORAGE.SONGS) || 'null');
@@ -3780,6 +3805,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       function setShowChords(val) {
         state.showChords = Boolean(val);
         try { localStorage.setItem(STORAGE.SHOW_CHORDS, String(state.showChords)); } catch (e) {}
+        saveAtrilPrefs();
         syncVisorToggleUI();
         renderVisor();
         if (!document.getElementById('atril-overlay').classList.contains('hidden')) renderAtrilSheet();
@@ -3788,6 +3814,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       function setTwoCols(val) {
         state.twoCols = Boolean(val);
         try { localStorage.setItem(STORAGE.TWO_COLS, String(state.twoCols)); } catch (e) {}
+        saveAtrilPrefs();
         syncVisorToggleUI();
         renderVisor();
         if (!document.getElementById('atril-overlay').classList.contains('hidden')) renderAtrilSheet();
@@ -6210,16 +6237,19 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           if (atrilRange) atrilRange.value = String(state.scrollSpeed);
           if (mainValue) mainValue.textContent = String(state.scrollSpeed);
           if (atrilValue) atrilValue.textContent = String(state.scrollSpeed);
+          saveAtrilPrefs();
         };
         document.getElementById('scroll-speed-range').oninput = e => syncScrollSpeed(e.target.value);
         document.getElementById('atril-scroll-speed-range').oninput = e => syncScrollSpeed(e.target.value);
         document.getElementById('atril-font-dec').onclick = () => {
           state.atrilFontSize = Math.max(14, state.atrilFontSize - 2);
           document.getElementById('atril-sheet').style.fontSize = `${state.atrilFontSize}px`;
+          saveAtrilPrefs();
         };
         document.getElementById('atril-font-inc').onclick = () => {
           state.atrilFontSize = Math.min(42, state.atrilFontSize + 2);
           document.getElementById('atril-sheet').style.fontSize = `${state.atrilFontSize}px`;
+          saveAtrilPrefs();
         };
 
         // Gestos táctiles del Atril:
@@ -6264,6 +6294,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             if (nextSize !== state.atrilFontSize) {
               state.atrilFontSize = nextSize;
               atrilSheet.style.fontSize = `${nextSize}px`;
+              saveAtrilPrefs();
             }
           } else if (event.touches.length === 1 && touchMode === 'scroll') {
             event.preventDefault();
