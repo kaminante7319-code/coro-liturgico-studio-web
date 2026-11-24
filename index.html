@@ -3116,7 +3116,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           submit.textContent = 'Enviando…';
           status.textContent = 'Procesando invitación segura…';
           try {
-            const response = await fetch(SUPABASE_URL + '/functions/v1/invite-member', {
+            const response = await fetch(SUPABASE_URL + '/functions/v1/invite-members', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
