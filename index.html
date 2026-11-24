@@ -2752,29 +2752,33 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function detectPasswordRecovery() {
         const hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
-        const type = hash.get('type');
-        const accessToken = hash.get('access_token');
-        const error = hash.get('error_description') || hash.get('error');
+        const params = new URLSearchParams(location.search || '');
+        const type = hash.get('type') || params.get('type');
+        const accessToken = hash.get('access_token') || params.get('access_token');
+        const error = hash.get('error_description') || hash.get('error') ||
+                      params.get('error_description') || params.get('error');
         if (error) {
-          setTimeout(() => showToast('Recuperación: ' + decodeURIComponent(error.replace(/\+/g, ' '))), 500);
+          setTimeout(() => showToast('Invitación: ' + decodeURIComponent(error.replace(/\+/g, ' '))), 500);
           return false;
         }
-        if (type !== 'recovery' || !accessToken) return false;
+        if (!['recovery', 'invite', 'signup', 'magiclink'].includes(type) || !accessToken) return false;
         state.supabaseSession = {
           access_token: accessToken,
-          refresh_token: hash.get('refresh_token') || '',
-          token_type: hash.get('token_type') || 'bearer',
-          expires_in: Number(hash.get('expires_in')) || 3600
+          refresh_token: hash.get('refresh_token') || params.get('refresh_token') || '',
+          token_type: hash.get('token_type') || params.get('token_type') || 'bearer',
+          expires_in: Number(hash.get('expires_in') || params.get('expires_in')) || 3600
         };
+        state.passwordSetupType = type;
         setTimeout(openPasswordRecoveryModal, 350);
         return true;
       }
 
       function openPasswordRecoveryModal() {
+        const isInvite = state.passwordSetupType === 'invite' || state.passwordSetupType === 'signup';
         openModal(`
           <div>
-            <h3 class="section-title">Restablecer contraseña</h3>
-            <p class="section-desc">Crea una contraseña nueva para tu cuenta de administrador.</p>
+            <h3 class="section-title">${isInvite ? 'Activar mi cuenta' : 'Restablecer contraseña'}</h3>
+            <p class="section-desc">${isInvite ? 'Bienvenido al coro. Crea tu contraseña para activar tu acceso.' : 'Crea una contraseña nueva para tu cuenta.'}</p>
           </div>
           <form id="recovery-password-form" style="display:flex; flex-direction:column; gap:11px;">
             <div>
@@ -2808,9 +2812,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               body: JSON.stringify({ password })
             }, true);
             state.supabaseSession = null;
+            state.passwordSetupType = '';
             history.replaceState(null, document.title, location.pathname + location.search);
             closeModal();
-            showToast('Contraseña actualizada. Inicia sesión con la nueva contraseña.');
+            showToast(isInvite ? 'Cuenta activada. Inicia sesión con tu nueva contraseña.' : 'Contraseña actualizada. Inicia sesión con la nueva contraseña.');
             openAdminLoginModal();
           } catch (error) {
             err.textContent = error.message || 'No se pudo actualizar la contraseña. Solicita un enlace nuevo.';
