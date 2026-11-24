@@ -2304,6 +2304,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       const state = {
         isAdmin: false,
         adminPin: DEFAULT_ADMIN_PIN,
+        supabaseSession: null,
+        supabaseCategories: [],
         theme: { primary: '#b45309', dark: true },
         showChords: true,
         twoCols: false,
@@ -2643,6 +2645,122 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       // ===================================================================
+      // ===================================================================
+      // SUPABASE BETA: autenticacion real y cantoral publicado
+      // ===================================================================
+      const SUPABASE_URL = 'https://urubelrtnvfvpfggecgm.supabase.co';
+      const SUPABASE_ANON_KEY = 'sb_publishable_6s8EQUqNWOCn2BVO8a420A_GVMlCRfZ';
+
+      async function supabaseRequest(path, options = {}, useSession = false) {
+        const headers = {
+          apikey: SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        };
+        if (useSession && state.supabaseSession?.access_token) {
+          headers.Authorization = 'Bearer ' + state.supabaseSession.access_token;
+        } else {
+          headers.Authorization = 'Bearer ' + SUPABASE_ANON_KEY;
+        }
+        const response = await fetch(SUPABASE_URL + path, { ...options, headers });
+        const raw = await response.text();
+        let data = null;
+        try { data = raw ? JSON.parse(raw) : null; } catch (_) { data = raw; }
+        if (!response.ok) {
+          const message = data?.message || data?.msg || data?.error_description || data?.error || 'Error de conexión con Supabase';
+          throw new Error(message);
+        }
+        return data;
+      }
+
+      function mapSupabaseSong(row) {
+        const category = state.supabaseCategories.find(c => c.id === row.categoria_id);
+        const moment = category?.nombre || 'Todos';
+        return {
+          id: row.app_id || String(row.id),
+          title: row.titulo || 'Canto sin título',
+          moment: moment,
+          season: row.tiempo_liturgico || 'Ordinario',
+          key: row.tono || 'C',
+          bpm: Number(row.bpm) || 80,
+          notes: row.notas || '',
+          lyrics: row.cifrado || row.letra || '',
+          audioUrl: row.audio_url || '',
+          audioName: row.audio_name || '',
+          published: Boolean(row.publicado),
+          author: row.autor || ''
+        };
+      }
+
+      async function loadSupabaseSongs(admin = false) {
+        try {
+          state.supabaseCategories = await supabaseRequest('/rest/v1/categorias?select=id,nombre&order=nombre.asc');
+          const fields = 'id,app_id,titulo,letra,autor,categoria_id,tiempo_liturgico,tono,cifrado,publicado,bpm,notas,audio_url,audio_name';
+          const filter = admin ? '' : '&publicado=eq.true';
+          const rows = await supabaseRequest('/rest/v1/cantos?select=' + fields + filter + '&order=titulo.asc', {}, admin);
+          state.songs = (rows || []).map(mapSupabaseSong);
+          if (state.songs.length) state.visorSongId = state.songs[0].id;
+          else state.visorSongId = null;
+          saveSongs();
+          renderSongsList();
+          renderVisor();
+          return true;
+        } catch (error) {
+          console.warn('Supabase cantos:', error);
+          if (!navigator.onLine) showToast('Sin conexión: se conserva el contenido local');
+          else showToast('No se pudo actualizar el cantoral: ' + error.message);
+          return false;
+        }
+      }
+
+      async function saveSongToSupabase(song) {
+        if (!state.supabaseSession?.access_token) throw new Error('Inicia sesión como administrador.');
+        const category = state.supabaseCategories.find(c => String(c.nombre).toLowerCase() === String(song.moment || '').toLowerCase());
+        const payload = {
+          app_id: String(song.id),
+          titulo: song.title,
+          letra: song.lyrics || '',
+          autor: song.author || '',
+          categoria_id: category?.id || null,
+          tiempo_liturgico: song.season || 'Ordinario',
+          tono: song.key || 'C',
+          cifrado: song.lyrics || '',
+          publicado: Boolean(song.published),
+          bpm: Number(song.bpm) || 80,
+          notas: song.notes || '',
+          audio_url: (song.audioUrl || '').startsWith('http') ? song.audioUrl : '',
+          audio_name: song.audioName || null
+        };
+        await supabaseRequest('/rest/v1/cantos?on_conflict=app_id', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(payload)
+        }, true);
+      }
+
+      async function deleteSongFromSupabase(songId) {
+        if (!state.supabaseSession?.access_token) throw new Error('Sesión de administrador no válida.');
+        const id = encodeURIComponent(String(songId));
+        await supabaseRequest('/rest/v1/cantos?app_id=eq.' + id, {
+          method: 'DELETE',
+          headers: { Prefer: 'return=minimal' }
+        }, true);
+      }
+
+      async function supabaseAdminLogin(email, password) {
+        const session = await supabaseRequest('/auth/v1/token?grant_type=password', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
+        });
+        state.supabaseSession = session;
+        const admins = await supabaseRequest('/rest/v1/admin_users?select=user_id&user_id=eq.' + encodeURIComponent(session.user.id), {}, true);
+        if (!admins || !admins.length) {
+          state.supabaseSession = null;
+          throw new Error('Esta cuenta no tiene permisos de administrador.');
+        }
+        return session;
+      }
+
       // 4. ADMIN PERMISSIONS (PROTECTS MASTER CANTORAL ONLY; LISTS ALWAYS OPEN)
       // ===================================================================
       function requireAdmin() {
@@ -2653,6 +2771,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function setAdminMode(unlocked) {
         state.isAdmin = Boolean(unlocked);
+        if (!unlocked) state.supabaseSession = null;
         syncAdminUI();
         renderSongsList();
         renderVisor();
@@ -2687,45 +2806,54 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function openAdminLoginModal() {
-        const isDefaultPin = state.adminPin === DEFAULT_ADMIN_PIN;
         openModal(`
           <div class="row-between">
             <div>
               <h3 class="section-title">Acceso de Administrador</h3>
-              <p class="section-desc">Ingresa el PIN para editar el Cantoral maestro.</p>
+              <p class="section-desc">Inicia sesión con tu cuenta autorizada de Supabase.</p>
             </div>
             <button type="button" id="adm-login-close" class="mini-icon-btn" style="font-size:1.3rem;">&times;</button>
           </div>
           <form id="admin-login-form" style="display:flex; flex-direction:column; gap:11px;">
             <div>
-              <label class="field-label" for="adm-pin-input">PIN de Administrador</label>
-              <input id="adm-pin-input" type="password" inputmode="numeric" autocomplete="off" class="input" placeholder="Ingresa tu PIN..." required />
+              <label class="field-label" for="adm-email-input">Correo electrónico</label>
+              <input id="adm-email-input" type="email" autocomplete="username" class="input" placeholder="Tu correo de administrador" required />
+            </div>
+            <div>
+              <label class="field-label" for="adm-password-input">Contraseña</label>
+              <input id="adm-password-input" type="password" autocomplete="current-password" class="input" placeholder="Contraseña de Supabase" required />
             </div>
             <p id="adm-login-err" class="hidden" style="margin:0; font-size:0.82rem; color:var(--danger); font-weight:700;"></p>
-            ${isDefaultPin ? `<div class="pin-hint"><strong>PIN inicial:</strong> <code>1234</code>. Puedes cambiarlo dentro del Panel de Administrador.</div>` : ''}
             <div class="row" style="justify-content:flex-end;">
               <button type="button" id="adm-login-cancel" class="btn btn-secondary btn-sm">Cancelar</button>
-              <button type="submit" class="btn btn-primary btn-sm">🔓 Desbloquear Admin</button>
+              <button type="submit" id="adm-login-submit" class="btn btn-primary btn-sm">🔓 Iniciar sesión</button>
             </div>
           </form>
         `);
         document.getElementById('adm-login-close').onclick = closeModal;
         document.getElementById('adm-login-cancel').onclick = closeModal;
-        const inp = document.getElementById('adm-pin-input');
-        setTimeout(() => inp.focus(), 60);
-
-        document.getElementById('admin-login-form').onsubmit = e => {
+        document.getElementById('adm-email-input').focus();
+        document.getElementById('admin-login-form').onsubmit = async e => {
           e.preventDefault();
           const errEl = document.getElementById('adm-login-err');
-          if (inp.value.trim() === state.adminPin) {
+          const submit = document.getElementById('adm-login-submit');
+          submit.disabled = true;
+          submit.textContent = 'Verificando…';
+          errEl.classList.add('hidden');
+          try {
+            await supabaseAdminLogin(
+              document.getElementById('adm-email-input').value.trim(),
+              document.getElementById('adm-password-input').value
+            );
             closeModal();
             setAdminMode(true);
-            showToast('Modo Administrador desbloqueado');
-          } else {
-            errEl.textContent = 'PIN incorrecto. Inténtalo de nuevo.';
+            await loadSupabaseSongs(true);
+            showToast('Sesión de administrador iniciada');
+          } catch (error) {
+            errEl.textContent = error.message || 'No fue posible iniciar sesión.';
             errEl.classList.remove('hidden');
-            inp.value = '';
-            inp.focus();
+            submit.disabled = false;
+            submit.textContent = '🔓 Iniciar sesión';
           }
         };
       }
@@ -2786,7 +2914,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               <button type="button" id="cld-pull-btn" class="btn btn-soft btn-sm">⬇️ Bajar de la Nube</button>
             </div>
             <div id="cld-status-txt" style="font-size:0.73rem; color:var(--text-muted);">
-              ${state.cloud.lastSync ? `Última sincronización: ${esc(state.cloud.lastSync)}` : 'Requiere tabla "coro_backups" (id text primary key, payload jsonb, updated_at timestamptz).'}
+              ${state.cloud.lastSync ? `Última sincronización: ${esc(state.cloud.lastSync)}` : 'La beta usa el cantoral compartido de Supabase. Esta herramienta de respaldo local se conserva.'}
             </div>
           </div>
 
@@ -3409,6 +3537,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const s = state.songs.find(x => x.id === songId);
         if (!s) return;
         confirmDialog('Eliminar Canto', `¿Deseas eliminar "${s.title}" del cantoral y de los listados?`, 'Eliminar', () => {
+          deleteSongFromSupabase(s.id).catch(err => showToast('No se pudo eliminar en la nube: ' + err.message));
           state.songs = state.songs.filter(x => x.id !== s.id);
           state.lists.forEach(l => { l.songIds = l.songIds.filter(id => id !== s.id); });
           if (state.visorSongId === s.id) state.visorSongId = state.songs[0] ? state.songs[0].id : null;
@@ -3490,6 +3619,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               </div>
             </div>
 
+            <label class="row" style="align-items:center; gap:9px; padding:9px 11px; border:1px solid var(--border); border-radius:10px;">
+              <input id="sf-published" type="checkbox" ${song && song.published ? 'checked' : ''} />
+              <span><strong>Publicar canto</strong><small style="display:block;color:var(--text-muted);">Visible para todos los usuarios de la beta</small></span>
+            </label>
             <div>
               <label class="field-label" for="sf-lyrics">Letra con acordes entre corchetes *</label>
               <div class="chord-quick-bar">
@@ -3560,7 +3693,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             notes: document.getElementById('sf-notes').value.trim(),
             lyrics: document.getElementById('sf-lyrics').value,
             audioUrl: document.getElementById('sf-audio-url').value.trim(),
-            audioName: song ? (song.audioName || '') : ''
+            audioName: song ? (song.audioName || '') : '',
+            published: document.getElementById('sf-published').checked
           };
 
           let targetSong;
@@ -3591,6 +3725,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           }
 
           saveSongs();
+          saveSongToSupabase(targetSong).then(() => showToast(targetSong.published ? 'Canto guardado y publicado' : 'Borrador guardado en la nube'))
+            .catch(err => showToast('Guardado local; error en nube: ' + err.message));
           closeModal();
           renderSongsList();
           if (state.activeTab === 'visor') renderVisor();
@@ -5537,7 +5673,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         renderReferenceToneButtons();
         renderRecordings();
         loadSavedRecordings();
-        hydrateFromIndexedDB();
+        hydrateFromIndexedDB().then(() => loadSupabaseSongs(false));
 
         // Gestos horizontales en Visor y Modo Atril para cambiar de canto en una lista
         let touchStartX = 0, touchStartY = 0;
