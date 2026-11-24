@@ -3142,7 +3142,15 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             catch (_) { result = { error: raw || 'Respuesta vacía del servidor' }; }
 
             if (!response.ok || result.error) {
-              const detail = result.error || result.message || result.msg || raw || 'Error sin detalle';
+              const parts = [];
+              if (result.error) parts.push(String(result.error));
+              if (result.detail) parts.push('Detalle: ' + String(result.detail));
+              if (result.code) parts.push('Código: ' + String(result.code));
+              if (result.user_id) parts.push('ID de sesión: ' + String(result.user_id));
+              if (result.email) parts.push('Correo de sesión: ' + String(result.email));
+              const detail = parts.length
+                ? parts.join(' | ')
+                : (result.message || result.msg || raw || 'Error sin detalle');
               throw new Error('HTTP ' + response.status + ': ' + detail);
             }
 
