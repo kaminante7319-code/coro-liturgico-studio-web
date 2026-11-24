@@ -1088,6 +1088,79 @@
       .atril-scroll-area { padding-top: 10px; }
     }
 
+    /* Atril 4.2: distribución optimizada para tablet en horizontal */
+    @media (orientation: landscape) and (min-width: 700px) and (max-height: 900px) {
+      #atril-overlay .atril-bar {
+        padding: 6px 14px;
+        gap: 5px;
+      }
+      #atril-overlay .atril-bar > .row-between:first-child {
+        min-height: 34px;
+      }
+      #atril-overlay #atril-title {
+        font-size: .96rem !important;
+      }
+      #atril-overlay .atril-bar > .row-between:nth-child(2) {
+        align-items: center;
+        flex-wrap: nowrap !important;
+        gap: 12px !important;
+      }
+      #atril-overlay .atril-bar > .row-between:nth-child(2) > .row:first-child {
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+      }
+      #atril-overlay .atril-bar .atril-btn {
+        min-height: 34px;
+        padding: 6px 11px;
+        white-space: nowrap;
+      }
+      #atril-overlay #atril-list-nav {
+        width: auto;
+        padding: 0;
+        flex-shrink: 0;
+      }
+      #atril-overlay #atril-list-nav .atril-btn {
+        min-width: 96px;
+        min-height: 36px;
+      }
+      #atril-overlay .atril-reading-controls {
+        padding: 3px 2px 0;
+      }
+      #atril-overlay .atril-reading-actions {
+        min-height: 32px;
+      }
+      #atril-overlay .atril-reading-hint,
+      #atril-overlay #atril-zoom-hint {
+        display: none;
+      }
+      #atril-overlay .atril-scroll-area {
+        max-width: 1400px;
+        padding: 12px 28px 54px;
+      }
+      #atril-overlay.atril-clean-mode .atril-scroll-area {
+        padding: 18px 34px 42px;
+      }
+    }
+
+    @media (orientation: landscape) and (min-width: 700px) and (max-height: 520px) {
+      #atril-overlay .atril-bar {
+        padding: 4px 12px;
+        gap: 3px;
+      }
+      #atril-overlay .atril-bar .atril-btn {
+        min-height: 30px;
+        padding: 4px 9px;
+        font-size: .72rem;
+      }
+      #atril-overlay .atril-reading-actions {
+        min-height: 27px;
+      }
+      #atril-overlay .atril-scroll-area {
+        padding-top: 8px;
+        padding-bottom: 36px;
+      }
+    }
+
     /* =====================================================================
        8. METRONOME, TUNER, TONES & RECORDER
        ===================================================================== */
