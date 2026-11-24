@@ -1639,6 +1639,130 @@
       .card { padding: 15px; }
     }
 
+
+    /* =====================================================================
+       14. TIPOGRAFÍA: JERARQUÍA CLARA Y LECTURA CÓMODA
+       Interfaz sans-serif del sistema: rápida, limpia y disponible sin internet.
+       ===================================================================== */
+    html, body, button, input, select, textarea {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      font-size: 16px;
+      line-height: 1.55;
+      letter-spacing: 0;
+    }
+
+    h1, h2, h3, h4,
+    .brand-title, .section-title, .card-title,
+    .ensayo-module-title, .drawer-title {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.25;
+      text-wrap: pretty;
+    }
+
+    .section-desc, .field-label, .info-notice, .admin-banner,
+    .nav-item, .tool-menu-btn, .btn, label {
+      letter-spacing: 0.005em;
+      line-height: 1.4;
+    }
+
+    .lyric-line, .lyric-txt {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-weight: 500;
+      letter-spacing: 0.005em;
+      font-kerning: normal;
+    }
+
+    .lyric-line {
+      line-height: 1.62;
+      margin-bottom: 0.52em;
+    }
+
+    .chord-tag {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0.015em;
+    }
+
+    .lyric-section-hdr {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      letter-spacing: 0.075em;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 600px) {
+      body { font-size: 15.5px; line-height: 1.58; }
+      .brand-title { font-size: .94rem; letter-spacing: -0.02em; }
+      .section-title { font-size: 1.12rem; }
+      .section-desc { font-size: .82rem; line-height: 1.5; }
+      .card, .view-section { line-height: 1.52; }
+      .lyric-line, .lyric-txt {
+        font-size: clamp(1rem, 4vw, 1.12rem);
+        line-height: 1.68;
+      }
+      .chord-tag { font-size: .82em; line-height: 1.2; }
+      .lyric-section-hdr { font-size: .75em; }
+      .field-label { font-size: .88rem; font-weight: 650; }
+      .nav-item { font-weight: 600; }
+    }
+
+    @media (max-width: 380px) {
+      .lyric-line, .lyric-txt { font-size: 1rem; line-height: 1.62; }
+    }
+
+
+    /* TIPOGRAFIA REFINADA: ligera, clara y adaptable */
+    :root { --ui-font: "Roboto", "Segoe UI", system-ui, -apple-system, Arial, sans-serif; }
+    html, body, button, input, select, textarea {
+      font-family: var(--ui-font);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    body { font-weight: 400; letter-spacing: .005em; }
+    h1, h2, h3, .section-title, .brand-title, .card-title {
+      font-weight: 600 !important;
+      letter-spacing: -.025em;
+    }
+    p, label, .section-desc, .field-label, .lyric-txt { font-weight: 400; }
+    button, .btn, .nav-item, .tool-menu-btn, .badge, .badge-neutral {
+      font-weight: 500 !important;
+      letter-spacing: .005em;
+    }
+    .lyric-line, .lyric-txt {
+      font-family: var(--ui-font);
+      font-weight: 400 !important;
+      letter-spacing: .008em;
+      line-height: 1.72;
+    }
+    .chord-tag {
+      font-family: var(--ui-font);
+      font-weight: 600 !important;
+      letter-spacing: .01em;
+    }
+    .lyric-section-hdr {
+      font-weight: 600 !important;
+      letter-spacing: .055em;
+    }
+    input, select, textarea { font-weight: 400; }
+    @media (max-width: 600px) {
+      body { font-size: 15.5px; line-height: 1.6; }
+      .lyric-line, .lyric-txt {
+        font-size: clamp(1.04rem, 4.25vw, 1.16rem);
+        line-height: 1.76;
+      }
+      .chord-tag { font-size: .84em; line-height: 1.25; }
+      .section-title { font-weight: 600 !important; }
+      .btn, button { letter-spacing: 0; }
+    }
+    @media (max-width: 380px) {
+      .lyric-line, .lyric-txt { font-size: 1.02rem; line-height: 1.7; }
+    }
   </style>
 </head>
 <body>
