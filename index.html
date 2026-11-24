@@ -1488,6 +1488,157 @@
       from { opacity: 0; transform: scale(0.94); }
       to { opacity: 1; transform: scale(1); }
     }
+  
+
+    /* =====================================================================
+       13. AJUSTE RESPONSIVE REAL: CELULAR Y TABLET
+       Mantiene intactas las funciones y la distribución de escritorio.
+       ===================================================================== */
+    @media (max-width: 600px) {
+      html, body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        font-size: 15px;
+      }
+      #app-shell {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        padding-top: calc(var(--header-h) + 2px);
+        padding-bottom: calc(100px + env(safe-area-inset-bottom));
+      }
+      .top-bar-inner {
+        padding-left: 10px;
+        padding-right: 10px;
+        gap: 5px;
+      }
+      .brand { gap: 7px; flex: 1 1 auto; }
+      .brand-icon { width: 34px; height: 34px; border-radius: 10px; }
+      .brand-title { font-size: .88rem; max-width: 44vw; }
+      .brand-sub { font-size: .55rem; letter-spacing: .045em; }
+      .top-actions { gap: 4px; }
+      .top-btn {
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+        padding: 0;
+        border-radius: 12px;
+        font-size: .9rem;
+      }
+      .top-btn-label { display: none !important; }
+
+      .view-section {
+        width: 100%;
+        min-width: 0;
+        padding: 11px;
+        gap: 11px;
+      }
+      .card {
+        min-width: 0;
+        padding: 13px;
+        border-radius: 15px;
+      }
+      .section-title { font-size: 1.06rem; }
+      .section-desc { font-size: .76rem; }
+      .row, .row-between {
+        min-width: 0;
+        flex-wrap: wrap;
+        align-items: stretch;
+      }
+      .row > input, .row > select { min-width: 0; flex: 1 1 100%; }
+      .row > .btn, .row > button { flex: 0 0 auto; }
+      .grid-2 { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+      .segmented { border-radius: 13px; }
+      .seg-btn {
+        min-width: 0;
+        padding: 8px 5px;
+        font-size: .72rem;
+        white-space: normal;
+      }
+      .song-card {
+        padding: 11px;
+        gap: 7px;
+        align-items: flex-start;
+      }
+      .song-card-title {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: .94rem;
+      }
+      .song-card-actions { flex-wrap: wrap; justify-content: flex-end; }
+      .info-notice, .admin-banner {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        padding: 10px;
+        font-size: .74rem;
+      }
+      .info-notice > span, .admin-banner > span {
+        flex: 1 1 100%;
+        min-width: 0;
+      }
+      .btn { max-width: 100%; }
+      .btn-lg { padding: 10px 14px; }
+      .input, .select, .textarea { min-width: 0; font-size: 16px; }
+      .tool-menu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tool-menu-btn { min-width: 0; overflow-wrap: anywhere; }
+      .unified-tools-nav {
+        padding: 7px 9px calc(7px + env(safe-area-inset-bottom));
+      }
+      .unified-tools-toggle { min-height: 45px; font-size: .86rem; }
+      .unified-tools-menu {
+        max-height: min(62vh, 480px);
+        padding: 9px;
+      }
+      .bottom-nav {
+        left: 6px;
+        right: 6px;
+        bottom: calc(5px + env(safe-area-inset-bottom));
+      }
+      .bottom-nav-inner {
+        border-radius: 17px;
+        padding: 4px 2px;
+        gap: 1px;
+      }
+      .nav-item { min-width: 0; font-size: .58rem; }
+      .nav-item .nav-emoji { font-size: 1rem; }
+      .modal-backdrop { padding: 7px; align-items: flex-end; }
+      .modal-card {
+        max-height: 88dvh;
+        padding: 15px;
+        border-radius: 18px 18px 12px 12px;
+        gap: 11px;
+      }
+      .tone-grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .tone-grid-12 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .bpm-big { font-size: 2.7rem; }
+      .tuner-note-big { font-size: 3.1rem; }
+      .rec-timer-txt { font-size: 1.65rem; }
+      .ensayo-hub-head { padding: 11px; }
+      .ensayo-module summary { grid-template-columns: 36px minmax(0,1fr) 20px; gap: 8px; padding: 10px; }
+      .ensayo-module-icon { width: 36px; height: 36px; }
+      .ensayo-module-body { padding: 10px 11px 12px; }
+      img, video, canvas, svg { max-width: 100%; }
+      pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    }
+
+    @media (max-width: 380px) {
+      .view-section { padding: 8px; gap: 9px; }
+      .brand-title { max-width: 39vw; font-size: .82rem; }
+      .brand-sub { display: none; }
+      .tool-menu-grid { grid-template-columns: 1fr; }
+      .nav-item { font-size: .53rem; }
+      .nav-item .nav-emoji { font-size: .92rem; }
+      .song-card { flex-direction: column; }
+      .song-card-actions { width: 100%; justify-content: flex-start; }
+    }
+
+    @media (min-width: 601px) and (max-width: 900px) {
+      #app-shell { max-width: 100%; padding-left: 10px; padding-right: 10px; }
+      .view-section { padding: 14px; }
+      .card { padding: 15px; }
+    }
+
   </style>
 </head>
 <body>
