@@ -2028,18 +2028,18 @@
    Capa visual: conserva estructura, IDs, eventos y lógica de 5.1
    ================================================================ */
 :root{
- --primary:#635bdb;--primary-hover:#5148c8;--primary-soft:rgba(99,91,219,.10);
- --primary-border:rgba(99,91,219,.25);--primary-contrast:#fff;
- --bg:#f4f6fb;--surface:#fff;--surface-2:#edf0f7;--surface-glass:rgba(255,255,255,.90);
- --border:rgba(31,41,71,.09);--text:#172033;--text-muted:#68738a;
- --shadow:0 5px 18px rgba(27,39,75,.055),0 1px 3px rgba(27,39,75,.04);
- --shadow-float:0 18px 48px rgba(25,31,65,.18);--radius:15px;--radius-sm:10px;
+ --primary:#c9a45f;--primary-hover:#a98748;--primary-soft:rgba(201,164,95,.15);
+ --primary-border:rgba(201,164,95,.38);--primary-contrast:#101d33;
+ --bg:#0d1a2f;--surface:#14233b;--surface-2:#1c2d48;--surface-glass:rgba(20,35,59,.92);
+ --border:rgba(220,190,130,.16);--text:#f4efdf;--text-muted:#c0b89f;
+ --shadow:0 5px 18px rgba(0,0,0,.20),0 1px 3px rgba(0,0,0,.14);
+ --shadow-float:0 18px 48px rgba(0,0,0,.38);--radius:15px;--radius-sm:10px;
  --header-h:56px;--nav-h:54px;
 }
-html{background:var(--bg)} body{background:linear-gradient(145deg,#f7f8fc 0%,#f1f3fa 58%,#eef1f9 100%);color:var(--text)}
-.top-bar{height:var(--header-h);background:rgba(250,251,255,.88);border-bottom:1px solid rgba(99,91,219,.12);box-shadow:0 2px 16px rgba(25,31,65,.035)}
+html{background:var(--bg)} body{background:radial-gradient(ellipse at 50% -20%,#243958 0%,#0d1a2f 58%,#091426 100%);color:var(--text)}
+.top-bar{height:var(--header-h);background:rgba(13,26,47,.92);border-bottom:1px solid rgba(201,164,95,.24);box-shadow:0 2px 16px rgba(25,31,65,.035)}
 .top-bar-inner{width:min(100%,1440px);padding:0 18px;gap:12px}
-.brand{gap:10px}.brand-icon{width:36px;height:36px;border-radius:11px;overflow:hidden;box-shadow:0 4px 12px rgba(99,91,219,.18)}
+.brand{gap:10px}.brand-icon{width:36px;height:36px;border-radius:11px;overflow:hidden;box-shadow:0 4px 12px rgba(201,164,95,.20)}
 .brand-name,.brand-title{letter-spacing:-.035em;font-weight:800}
 .top-bar .btn,.top-bar button{min-height:34px;border-radius:10px;font-size:.78rem;padding:6px 10px}
 #app-shell{width:min(100%,1440px);margin:var(--header-h) auto 0;padding:18px 20px calc(var(--nav-h) + 34px)}
@@ -2048,24 +2048,24 @@ html{background:var(--bg)} body{background:linear-gradient(145deg,#f7f8fc 0%,#f1
 .section-title{font-weight:800;letter-spacing:-.035em}
 .section-desc,.field-label{color:var(--text-muted)}
 .input,.select,textarea{border:1px solid rgba(70,80,120,.15);border-radius:11px;background:rgba(255,255,255,.92);min-height:42px;box-shadow:inset 0 1px 2px rgba(20,30,60,.025)}
-.input:focus,.select:focus,textarea:focus{outline:3px solid rgba(99,91,219,.12);border-color:var(--primary)}
+.input:focus,.select:focus,textarea:focus{outline:3px solid rgba(201,164,95,.18);border-color:var(--primary)}
 .btn{border-radius:10px;font-weight:650;letter-spacing:-.01em;transition:transform .16s ease,box-shadow .16s ease,background .16s ease}
-.btn-primary{box-shadow:0 4px 12px rgba(99,91,219,.18)}
+.btn-primary{box-shadow:0 4px 12px rgba(201,164,95,.20)}
 .btn:active,.tool-menu-btn:active{transform:scale(.98)}
 .info-notice,.admin-banner{border-radius:12px;padding:9px 12px;font-size:.78rem}
-.unified-tools-nav{left:50%;right:auto;bottom:12px;transform:translateX(-50%);width:min(460px,calc(100% - 28px));padding:6px 7px calc(6px + env(safe-area-inset-bottom));background:rgba(20,25,46,.94);border:1px solid rgba(255,255,255,.12);border-radius:17px;box-shadow:0 12px 38px rgba(20,25,46,.25);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.unified-tools-nav{left:50%;right:auto;bottom:12px;transform:translateX(-50%);width:min(460px,calc(100% - 28px));padding:6px 7px calc(6px + env(safe-area-inset-bottom));background:rgba(10,22,40,.96);border:1px solid rgba(201,164,95,.30);border-radius:17px;box-shadow:0 12px 38px rgba(20,25,46,.25);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
 .unified-tools-wrap{width:100%;max-width:none}
-.unified-tools-toggle{width:100%;min-height:42px;border:0!important;border-radius:11px!important;background:linear-gradient(110deg,#655de0,#4e67c9)!important;color:#fff!important;padding:8px 14px!important;font-weight:750;box-shadow:0 4px 14px rgba(75,83,195,.28)}
+.unified-tools-toggle{width:100%;min-height:42px;border:0!important;border-radius:11px!important;background:linear-gradient(110deg,#d9b875,#a98748)!important;color:#101d33!important;padding:8px 14px!important;font-weight:750;box-shadow:0 4px 14px rgba(201,164,95,.25)}
 .unified-tools-toggle .toggle-left{gap:10px}.unified-tools-toggle .toggle-left>span:first-child{font-size:1.05rem!important}
 .unified-tools-toggle .toggle-arrow{color:rgba(255,255,255,.8)}
-.unified-tools-menu{position:absolute;left:0;right:0;bottom:calc(100% + 10px);width:100%;max-height:min(70vh,620px);overflow:auto;padding:13px;background:rgba(249,250,255,.98);border:1px solid rgba(99,91,219,.15);border-radius:18px;box-shadow:0 18px 55px rgba(24,31,64,.22);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.unified-tools-menu{position:absolute;left:0;right:0;bottom:calc(100% + 10px);width:100%;max-height:min(70vh,620px);overflow:auto;padding:13px;background:rgba(17,31,52,.98);border:1px solid rgba(201,164,95,.28);border-radius:18px;box-shadow:0 18px 55px rgba(24,31,64,.22);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
 .tool-menu-section{padding:4px 2px 10px;margin:0 0 8px;border-bottom:1px solid rgba(70,80,120,.10)}.tool-menu-section:last-child{border:0;margin:0;padding-bottom:2px}
-.tool-menu-title{font-size:.66rem!important;letter-spacing:.12em;text-transform:uppercase;font-weight:850!important;color:#7a80a0!important;margin:0 0 8px;padding:0 5px}
+.tool-menu-title{font-size:.66rem!important;letter-spacing:.12em;text-transform:uppercase;font-weight:850!important;color:#d0b77f!important;margin:0 0 8px;padding:0 5px}
 .tool-menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-.tool-menu-btn{min-height:58px!important;display:flex;align-items:center;gap:10px;text-align:left;padding:9px 10px!important;border:1px solid rgba(75,83,130,.10)!important;border-radius:12px!important;background:#fff!important;color:#202944!important;box-shadow:0 2px 7px rgba(28,36,70,.035)}
-.tool-menu-btn:hover{border-color:rgba(99,91,219,.32)!important;background:#f7f7ff!important}
-.tool-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:#f0efff;font-size:1.05rem!important}
-.tool-menu-btn>span:last-child{font-size:.79rem;font-weight:750;line-height:1.2}.tool-sub{display:block;margin-top:3px;font-size:.65rem!important;font-weight:450!important;color:#788198!important}
+.tool-menu-btn{min-height:58px!important;display:flex;align-items:center;gap:10px;text-align:left;padding:9px 10px!important;border:1px solid rgba(201,164,95,.18)!important;border-radius:12px!important;background:#192b45!important;color:#f4efdf!important;box-shadow:0 2px 7px rgba(28,36,70,.035)}
+.tool-menu-btn:hover{border-color:rgba(201,164,95,.55)!important;background:#223752!important}
+.tool-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:rgba(201,164,95,.16);color:#e0c27e;font-size:1.05rem!important}
+.tool-menu-btn>span:last-child{font-size:.79rem;font-weight:750;line-height:1.2}.tool-sub{display:block;margin-top:3px;font-size:.65rem!important;font-weight:450!important;color:#c0b89f!important}
 #songs-list{gap:8px!important}
 #songs-list>.card,#songs-list>div{border-radius:13px}
 .visor-options-drawer{border-radius:16px 0 0 16px;box-shadow:-12px 0 36px rgba(22,30,60,.13)}
@@ -2089,6 +2089,16 @@ html{background:var(--bg)} body{background:linear-gradient(145deg,#f7f8fc 0%,#f1
 }
 @media(prefers-reduced-motion:reduce){.btn,.tool-menu-btn{transition:none}}
 
+
+/* Paleta institucional extraída del logotipo: azul noche, oro litúrgico y marfil */
+#app-shell .card{background:linear-gradient(145deg,rgba(25,43,68,.97),rgba(18,33,55,.98));border-color:rgba(201,164,95,.16);color:#f4efdf}
+.input,.select,textarea{background:#10213a;color:#f4efdf;border-color:rgba(201,164,95,.24)}
+.input::placeholder,textarea::placeholder{color:#a9a18e}
+.top-bar .brand-name,.top-bar .brand-title{color:#f1dfb2}
+.btn-primary{background:linear-gradient(135deg,#d9b875,#a98748);color:#101d33;border-color:#c9a45f}
+.tool-menu-btn.active-tool{background:rgba(201,164,95,.17)!important;border-color:#c9a45f!important;color:#f1d99e!important}
+.unified-tools-toggle .toggle-arrow{color:#17243a}
+@media(prefers-reduced-motion:no-preference){.card,.tool-menu-btn,.btn{transition:background .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}}
 </style>
 </head>
 <body>
@@ -2933,7 +2943,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         adminPin: DEFAULT_ADMIN_PIN,
         supabaseSession: null,
         supabaseCategories: [],
-        theme: { primary: '#b45309', dark: true },
+        theme: { primary: '#c9a45f', dark: true },
         showChords: true,
         twoCols: false,
         notesVisible: true,
