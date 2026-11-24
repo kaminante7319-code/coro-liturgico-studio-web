@@ -909,6 +909,21 @@
       flex-shrink: 0;
     }
 
+    .atril-section-nav {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding:7px 14px; background:rgba(15,20,30,.94);
+      border-bottom:1px solid rgba(255,255,255,.07); flex-shrink:0;
+    }
+    .atril-section-nav label { color:#aeb8c8; font-size:.72rem; font-weight:700; }
+    .atril-section-nav select {
+      flex:1; min-width:150px; max-width:360px; padding:7px 10px;
+      border-radius:9px; color:#f3f4f6; background:#1a2130;
+      border:1px solid #354158; font-size:.78rem;
+    }
+    #atril-overlay .lyric-section-hdr { scroll-margin-top:18px; }
+    #atril-overlay .lyric-section-hdr.atril-section-active {
+      outline:2px solid var(--primary); outline-offset:4px;
+    }
     .atril-scroll-area {
       flex: 1;
       overflow-y: auto;
@@ -2568,6 +2583,12 @@
         </div>
         <div class="atril-reading-hint">Puedes pausar en cualquier momento o desplazar la letra manualmente</div>
       </div>
+    </div>
+    <div id="atril-section-nav" class="atril-section-nav hidden">
+      <label for="atril-section-select">Ir a sección</label>
+      <select id="atril-section-select" aria-label="Seleccionar sección del canto">
+        <option value="">Este canto no tiene secciones identificadas</option>
+      </select>
     </div>
 
     <button id="atril-restore-controls" type="button" class="hidden" aria-label="Mostrar controles del atril">☰ Mostrar controles</button>
@@ -5271,13 +5292,15 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       // ===================================================================
       function buildSheetHtml(lyrics, visualSteps, showChords) {
         const rawBlocks = lyrics.split(/\n\s*\n/);
+        let sectionIndex = 0;
         return rawBlocks.map(block => {
           const linesHtml = block.split('\n').map(line => {
             const trimmed = line.trim();
             if (!trimmed) return '';
 
             if (/^\[[A-ZÁÉÍÓÚÑ0-9\s]{3,}\]$/.test(trimmed) && !/^\[[A-G][#b]?(m|maj|min|dim|aug|sus|add|[0-9])*(\/[A-G][#b]?)?\]$/.test(trimmed)) {
-              return `<div class="lyric-section-hdr">${esc(trimmed.slice(1, -1))}</div>`;
+              const sectionId = `atril-section-${++sectionIndex}`;
+              return `<div id="${sectionId}" class="lyric-section-hdr" data-atril-section="${sectionIndex}">${esc(trimmed.slice(1, -1))}</div>`;
             }
 
             if (!showChords) {
@@ -5493,6 +5516,37 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         track.setAttribute('aria-valuenow', String(progress));
       }
 
+      function setupAtrilSections() {
+        const nav = document.getElementById('atril-section-nav');
+        const select = document.getElementById('atril-section-select');
+        const sheet = document.getElementById('atril-sheet');
+        const area = document.getElementById('atril-scroll-area');
+        if (!nav || !select || !sheet || !area) return;
+        const headers = Array.from(sheet.querySelectorAll('.lyric-section-hdr[data-atril-section]'));
+        select.innerHTML = '';
+        if (!headers.length) {
+          nav.classList.add('hidden');
+          return;
+        }
+        headers.forEach((header, index) => {
+          const option = document.createElement('option');
+          option.value = header.id;
+          option.textContent = `${index + 1}. ${header.textContent.trim()}`;
+          select.appendChild(option);
+        });
+        nav.classList.remove('hidden');
+        select.value = '';
+        select.onchange = () => {
+          const target = document.getElementById(select.value);
+          if (!target) return;
+          const top = area.scrollTop + target.getBoundingClientRect().top - area.getBoundingClientRect().top - 18;
+          area.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+          headers.forEach(item => item.classList.remove('atril-section-active'));
+          target.classList.add('atril-section-active');
+          updateAtrilProgress();
+        };
+      }
+
       function renderAtrilSheet() {
         const song = state.songs.find(s => s.id === state.visorSongId);
         if (!song) return;
@@ -5512,6 +5566,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         sheet.classList.toggle('two-cols', state.twoCols);
         sheet.innerHTML = buildSheetHtml(song.lyrics, visualSteps, state.showChords);
         attachChordClickHandlers(sheet);
+        setupAtrilSections();
 
         const nav = document.getElementById('atril-list-nav');
         const activeList = state.visorListId ? state.lists.find(l => l.id === state.visorListId) : null;
