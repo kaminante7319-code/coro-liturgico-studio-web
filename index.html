@@ -948,6 +948,72 @@
       border-color: var(--primary);
     }
 
+    /* Atril Inteligente 1.0: lectura y desplazamiento accesibles */
+    .atril-reading-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 8px 10px 2px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .atril-reading-actions {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+    .atril-reading-actions input[type="range"] {
+      flex: 1;
+      min-width: 55px;
+      accent-color: var(--primary);
+      touch-action: pan-x;
+    }
+    .atril-speed-caption, #atril-scroll-speed-val {
+      color: #cbd5e1;
+      font-size: .76rem;
+      white-space: nowrap;
+    }
+    #atril-scroll-speed-val { min-width: 14px; text-align: center; }
+    .atril-reading-hint {
+      color: #94a3b8;
+      font-size: .68rem;
+      padding-left: 2px;
+    }
+    #atril-overlay .atril-scroll-area {
+      scroll-behavior: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    #atril-overlay #atril-sheet {
+      line-height: 1.72;
+      letter-spacing: .01em;
+      padding-bottom: 48px;
+    }
+    #atril-overlay #atril-sheet .chord-tag {
+      font-weight: 800;
+      letter-spacing: .025em;
+    }
+    #atril-overlay .atril-btn:disabled {
+      opacity: .38;
+      cursor: not-allowed;
+    }
+    @media (max-width: 600px) {
+      .atril-bar { padding: 9px 9px 7px; gap: 7px; }
+      .atril-bar .row-between { align-items: center; }
+      .atril-bar .atril-btn { min-height: 36px; padding: 7px 9px; }
+      .atril-reading-controls { padding: 7px 2px 1px; }
+      .atril-reading-actions { gap: 7px; }
+      .atril-reading-hint { display: none; }
+      .atril-scroll-area { padding: 16px 13px 90px; }
+    }
+    @media (orientation: landscape) and (max-height: 520px) {
+      .atril-bar { padding: 5px 10px; gap: 4px; }
+      .atril-reading-controls { padding-top: 4px; }
+      .atril-reading-hint { display: none; }
+      .atril-scroll-area { padding-top: 10px; }
+    }
+
     /* =====================================================================
        8. METRONOME, TUNER, TONES & RECORDER
        ===================================================================== */
@@ -2306,7 +2372,6 @@
           <button id="atril-cols-btn" type="button" class="atril-btn">1 Col</button>
           <button id="atril-font-dec" type="button" class="atril-btn">A-</button>
           <button id="atril-font-inc" type="button" class="atril-btn">A+</button>
-          <button id="atril-scroll-btn" type="button" class="atril-btn">Scroll</button>
         </div>
 
         <div id="atril-list-nav" class="row hidden" style="gap:5px;">
@@ -2314,6 +2379,17 @@
           <span id="atril-list-pos" style="font-size:0.74rem; color:#9ca3af; font-weight:700;">1/3</span>
           <button id="atril-next" type="button" class="atril-btn">Siguiente ▶</button>
         </div>
+      </div>
+
+      <div class="atril-reading-controls" aria-label="Controles de desplazamiento del atril">
+        <div class="atril-reading-actions">
+          <button id="atril-scroll-btn" type="button" class="atril-btn" aria-pressed="false">▶ Iniciar lectura</button>
+          <span class="atril-speed-caption">Velocidad</span>
+          <input id="atril-scroll-speed-range" type="range" min="1" max="10" value="3"
+                 aria-label="Velocidad de desplazamiento" />
+          <strong id="atril-scroll-speed-val">3</strong>
+        </div>
+        <div class="atril-reading-hint">Puedes pausar en cualquier momento o desplazar la letra manualmente</div>
       </div>
     </div>
 
@@ -5174,8 +5250,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         btn.className = `btn btn-sm ${state.scrollActive ? 'btn-soft' : 'btn-secondary'}`;
 
         const aBtn = document.getElementById('atril-scroll-btn');
-        aBtn.textContent = state.scrollActive ? 'Pausar' : 'Scroll';
+        aBtn.textContent = state.scrollActive ? 'Ⅱ Pausar lectura' : '▶ Iniciar lectura';
         aBtn.classList.toggle('active-atril', state.scrollActive);
+        aBtn.setAttribute('aria-pressed', String(state.scrollActive));
 
         if (state.scrollActive) stepAutoScroll();
         else if (scrollRaf) { cancelAnimationFrame(scrollRaf); scrollRaf = null; }
@@ -5231,6 +5308,16 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         if (!state.visorSongId) return;
         document.getElementById('atril-overlay').classList.remove('hidden');
         document.getElementById('atril-scroll-area').scrollTop = 0;
+        const atrilSpeed = document.getElementById('atril-scroll-speed-range');
+        const atrilSpeedValue = document.getElementById('atril-scroll-speed-val');
+        if (atrilSpeed) atrilSpeed.value = String(state.scrollSpeed);
+        if (atrilSpeedValue) atrilSpeedValue.textContent = String(state.scrollSpeed);
+        const atrilScrollButton = document.getElementById('atril-scroll-btn');
+        if (atrilScrollButton) {
+          atrilScrollButton.textContent = state.scrollActive ? 'Ⅱ Pausar lectura' : '▶ Iniciar lectura';
+          atrilScrollButton.classList.toggle('active-atril', state.scrollActive);
+          atrilScrollButton.setAttribute('aria-pressed', String(state.scrollActive));
+        }
         if ('wakeLock' in navigator) {
           try { state.wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
         }
@@ -6010,10 +6097,19 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('btn-font-minus').onclick = () => { state.fontSize = Math.max(12, state.fontSize - 2); renderVisor(); };
         document.getElementById('btn-font-plus').onclick = () => { state.fontSize = Math.min(28, state.fontSize + 2); renderVisor(); };
         document.getElementById('btn-scroll-toggle').onclick = () => toggleAutoScroll();
-        document.getElementById('scroll-speed-range').oninput = e => {
-          state.scrollSpeed = parseInt(e.target.value, 10);
-          document.getElementById('scroll-speed-val').textContent = state.scrollSpeed;
+        const syncScrollSpeed = value => {
+          state.scrollSpeed = Math.max(1, Math.min(10, parseInt(value, 10) || 3));
+          const mainRange = document.getElementById('scroll-speed-range');
+          const atrilRange = document.getElementById('atril-scroll-speed-range');
+          const mainValue = document.getElementById('scroll-speed-val');
+          const atrilValue = document.getElementById('atril-scroll-speed-val');
+          if (mainRange) mainRange.value = String(state.scrollSpeed);
+          if (atrilRange) atrilRange.value = String(state.scrollSpeed);
+          if (mainValue) mainValue.textContent = String(state.scrollSpeed);
+          if (atrilValue) atrilValue.textContent = String(state.scrollSpeed);
         };
+        document.getElementById('scroll-speed-range').oninput = e => syncScrollSpeed(e.target.value);
+        document.getElementById('atril-scroll-speed-range').oninput = e => syncScrollSpeed(e.target.value);
         document.getElementById('atril-font-dec').onclick = () => {
           state.atrilFontSize = Math.max(14, state.atrilFontSize - 2);
           document.getElementById('atril-sheet').style.fontSize = `${state.atrilFontSize}px`;
@@ -6023,6 +6119,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           document.getElementById('atril-sheet').style.fontSize = `${state.atrilFontSize}px`;
         };
         document.getElementById('atril-scroll-btn').onclick = () => toggleAutoScroll();
+        document.getElementById('atril-scroll-btn').setAttribute('aria-pressed', String(state.scrollActive));
 
         document.getElementById('btn-toggle-notes').onclick = () => {
           state.notesVisible = !state.notesVisible;
