@@ -2747,6 +2747,76 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }, true);
       }
 
+      function detectPasswordRecovery() {
+        const hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+        const type = hash.get('type');
+        const accessToken = hash.get('access_token');
+        const error = hash.get('error_description') || hash.get('error');
+        if (error) {
+          setTimeout(() => showToast('Recuperación: ' + decodeURIComponent(error.replace(/\+/g, ' '))), 500);
+          return false;
+        }
+        if (type !== 'recovery' || !accessToken) return false;
+        state.supabaseSession = {
+          access_token: accessToken,
+          refresh_token: hash.get('refresh_token') || '',
+          token_type: hash.get('token_type') || 'bearer',
+          expires_in: Number(hash.get('expires_in')) || 3600
+        };
+        setTimeout(openPasswordRecoveryModal, 350);
+        return true;
+      }
+
+      function openPasswordRecoveryModal() {
+        openModal(`
+          <div>
+            <h3 class="section-title">Restablecer contraseña</h3>
+            <p class="section-desc">Crea una contraseña nueva para tu cuenta de administrador.</p>
+          </div>
+          <form id="recovery-password-form" style="display:flex; flex-direction:column; gap:11px;">
+            <div>
+              <label class="field-label" for="recovery-new-password">Nueva contraseña</label>
+              <input id="recovery-new-password" type="password" autocomplete="new-password" class="input" minlength="8" placeholder="Mínimo 8 caracteres" required />
+            </div>
+            <div>
+              <label class="field-label" for="recovery-confirm-password">Confirmar contraseña</label>
+              <input id="recovery-confirm-password" type="password" autocomplete="new-password" class="input" minlength="8" placeholder="Repite la nueva contraseña" required />
+            </div>
+            <p id="recovery-password-error" class="hidden" style="margin:0; font-size:0.82rem; color:var(--danger); font-weight:700;"></p>
+            <div class="row" style="justify-content:flex-end;">
+              <button type="submit" id="recovery-password-submit" class="btn btn-primary btn-sm">Guardar contraseña</button>
+            </div>
+          </form>
+        `);
+        document.getElementById('recovery-password-form').onsubmit = async e => {
+          e.preventDefault();
+          const password = document.getElementById('recovery-new-password').value;
+          const confirm = document.getElementById('recovery-confirm-password').value;
+          const err = document.getElementById('recovery-password-error');
+          const submit = document.getElementById('recovery-password-submit');
+          err.classList.add('hidden');
+          if (password.length < 8) { err.textContent = 'Usa al menos 8 caracteres.'; err.classList.remove('hidden'); return; }
+          if (password !== confirm) { err.textContent = 'Las contraseñas no coinciden.'; err.classList.remove('hidden'); return; }
+          submit.disabled = true; submit.textContent = 'Guardando…';
+          try {
+            await supabaseRequest('/auth/v1/user', {
+              method: 'PUT',
+              headers: { Authorization: 'Bearer ' + state.supabaseSession.access_token },
+              body: JSON.stringify({ password })
+            }, true);
+            state.supabaseSession = null;
+            history.replaceState(null, document.title, location.pathname + location.search);
+            closeModal();
+            showToast('Contraseña actualizada. Inicia sesión con la nueva contraseña.');
+            openAdminLoginModal();
+          } catch (error) {
+            err.textContent = error.message || 'No se pudo actualizar la contraseña. Solicita un enlace nuevo.';
+            err.classList.remove('hidden');
+            submit.disabled = false; submit.textContent = 'Guardar contraseña';
+          }
+        };
+      }
+
       async function supabaseAdminLogin(email, password) {
         const session = await supabaseRequest('/auth/v1/token?grant_type=password', {
           method: 'POST',
@@ -5653,6 +5723,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function init() {
+        const recoveryPending = detectPasswordRecovery();
         setupSplashScreen();
         const brandLogoBtn = document.getElementById('btn-brand-logo');
         if (brandLogoBtn) brandLogoBtn.onclick = openAboutLogoModal;
