@@ -6010,101 +6010,94 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         state.tunerRaf = requestAnimationFrame(tunerLoop);
       }
 
-      // Generador de tonos de referencia: AudioContext desbloqueado desde el toque del usuario.
-      let refAudioContext = null, refAudioOscillator = null, refAudioGain = null, refAudioKey = null;
-      let refAudioStarting = false;
+      // Tonos de referencia: enlaces directos por botón para máxima compatibilidad táctil.
+      let refAudioContext = null;
+      let refAudioOscillator = null;
+      let refAudioGain = null;
+      let refAudioKey = null;
 
       function getReferenceAudioContext() {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) throw new Error('Este navegador no admite reproducción de audio');
-        if (!refAudioContext || refAudioContext.state === 'closed') refAudioContext = new Ctx();
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) throw new Error('Audio Web no disponible en este navegador');
+        if (!refAudioContext || refAudioContext.state === 'closed') {
+          refAudioContext = new AudioCtx();
+        }
         return refAudioContext;
       }
 
-      function setReferenceToneUI(key, label, freq) {
+      function updateReferenceToneUI(activeKey, label, frequency) {
+        document.querySelectorAll('#panel-tonos .tone-btn').forEach(btn => {
+          const active = !!activeKey && btn.dataset.refKey === activeKey;
+          btn.classList.toggle('playing', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
         const stopBtn = document.getElementById('btn-ref-stop');
         const status = document.getElementById('ref-audio-status');
-        if (stopBtn) {
-          stopBtn.classList.remove('hidden');
-          stopBtn.textContent = '⏹ SILENCIAR';
-          stopBtn.disabled = false;
-        }
-        document.querySelectorAll('.tone-btn').forEach(btn => {
-          btn.classList.toggle('playing', !!key && btn.dataset.refKey === key);
-          btn.setAttribute('aria-pressed', (!!key && btn.dataset.refKey === key) ? 'true' : 'false');
-        });
-        if (status) status.textContent = key
-          ? `▶ ${label} · ${Number(freq).toFixed(2)} Hz · Reproduciendo`
-          : 'Audio detenido';
-      }
-
-      async function startReferenceTone(freq, key, label) {
-        if (refAudioStarting) return;
-        refAudioStarting = true;
-        stopReferenceTone();
-        try {
-          const ctx = getReferenceAudioContext();
-          // En Android/Chrome el contexto debe reanudarse desde la interacción del usuario.
-          if (ctx.state !== 'running') await ctx.resume();
-          if (ctx.state !== 'running') throw new Error('El navegador mantiene el audio suspendido');
-
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          const now = ctx.currentTime;
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(Number(freq), now);
-          gain.gain.setValueAtTime(0, now);
-          gain.gain.setTargetAtTime(0.16, now + 0.015, 0.025);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.onended = () => {
-            try { osc.disconnect(); gain.disconnect(); } catch (_) {}
-            if (refAudioOscillator === osc) {
-              refAudioOscillator = null;
-              refAudioGain = null;
-              refAudioKey = null;
-              setReferenceToneUI(null);
-              refAudioStarting = false;
-            }
-          };
-          osc.start();
-          refAudioOscillator = osc;
-          refAudioGain = gain;
-          refAudioKey = key;
-          setReferenceToneUI(key, label, freq);
-        } catch (err) {
-          const status = document.getElementById('ref-audio-status');
-          if (status) status.textContent = 'No se pudo reproducir el tono: ' + (err?.message || 'error de audio');
-          const stopBtn = document.getElementById('btn-ref-stop');
-          if (stopBtn) stopBtn.classList.add('hidden');
-          showToast('Activa el volumen multimedia y vuelve a tocar la nota');
-        } finally {
-          refAudioStarting = false;
+        if (stopBtn) stopBtn.classList.toggle('hidden', !activeKey);
+        if (status) {
+          status.textContent = activeKey
+            ? `▶ ${label} · ${Number(frequency).toFixed(2)} Hz · Sonando`
+            : 'Audio detenido';
         }
       }
 
       function stopReferenceTone() {
-        const osc = refAudioOscillator;
-        const gain = refAudioGain;
+        const oldOsc = refAudioOscillator;
+        const oldGain = refAudioGain;
         refAudioOscillator = null;
         refAudioGain = null;
         refAudioKey = null;
-        if (osc && refAudioContext) {
+
+        if (oldOsc) {
           try {
-            const now = refAudioContext.currentTime;
-            if (gain) {
-              gain.gain.cancelScheduledValues(now);
-              gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value || 0.0001), now);
-              gain.gain.linearRampToValueAtTime(0, now + 0.035);
+            const ctx = refAudioContext;
+            const now = ctx ? ctx.currentTime : 0;
+            if (oldGain && ctx) {
+              oldGain.gain.cancelScheduledValues(now);
+              oldGain.gain.setValueAtTime(Math.max(0.0001, oldGain.gain.value || 0.0001), now);
+              oldGain.gain.linearRampToValueAtTime(0, now + 0.025);
             }
-            osc.stop(now + 0.04);
+            oldOsc.stop(ctx ? now + 0.03 : undefined);
           } catch (_) {
-            try { osc.stop(); } catch (_) {}
+            try { oldOsc.stop(); } catch (_) {}
           }
+          try { oldOsc.disconnect(); } catch (_) {}
+          try { oldGain && oldGain.disconnect(); } catch (_) {}
         }
-        setReferenceToneUI(null);
-        const stopBtn = document.getElementById('btn-ref-stop');
-        if (stopBtn) stopBtn.classList.add('hidden');
+        updateReferenceToneUI(null);
+      }
+
+      async function startReferenceTone(frequency, key, label) {
+        stopReferenceTone();
+        try {
+          const ctx = getReferenceAudioContext();
+          // resume() se ejecuta inmediatamente desde el toque del usuario.
+          const resumePromise = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
+          await resumePromise;
+          if (ctx.state !== 'running') throw new Error('El audio sigue suspendido');
+
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = Number(frequency);
+          gain.gain.value = 0.0001;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          const now = ctx.currentTime;
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.20, now + 0.06);
+          osc.start(now);
+
+          refAudioOscillator = osc;
+          refAudioGain = gain;
+          refAudioKey = key;
+          updateReferenceToneUI(key, label, frequency);
+        } catch (error) {
+          updateReferenceToneUI(null);
+          const status = document.getElementById('ref-audio-status');
+          if (status) status.textContent = 'No se pudo iniciar el audio: ' + (error && error.message ? error.message : 'error');
+          showToast('Revisa el volumen multimedia y vuelve a tocar la nota');
+        }
       }
 
       function testReferenceAudio() {
@@ -6113,57 +6106,54 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function renderReferenceToneButtons() {
         const panel = document.getElementById('panel-tonos');
-        if (!panel || panel.dataset.refWired === '1') return;
-        panel.dataset.refWired = '1';
+        if (!panel) return;
 
-        // Delegación de eventos: funciona aunque el panel se muestre/oculte dinámicamente.
-        panel.addEventListener('click', function(ev) {
-          const noteBtn = ev.target.closest('.tone-btn[data-ref-freq]');
-          if (noteBtn && panel.contains(noteBtn)) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            const freq = Number(noteBtn.dataset.refFreq);
-            const key = noteBtn.dataset.refKey || ('note-' + freq);
-            const label = noteBtn.querySelector('.t-main')?.textContent?.trim() || key;
-            if (!Number.isFinite(freq) || freq <= 0) {
-              const status = document.getElementById('ref-audio-status');
-              if (status) status.textContent = 'Frecuencia inválida para esta nota';
-              return;
-            }
-            if (refAudioKey === key) {
-              stopReferenceTone();
-            } else {
-              startReferenceTone(freq, key, label);
-            }
-            return;
-          }
-
-          if (ev.target.closest('#btn-ref-stop')) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            stopReferenceTone();
-            return;
-          }
-
-          if (ev.target.closest('#btn-ref-test')) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            testReferenceAudio();
-          }
-        }, true);
-
-        panel.querySelectorAll('.tone-btn').forEach(btn => {
+        panel.querySelectorAll('.tone-btn[data-ref-freq]').forEach(btn => {
+          if (btn.dataset.refDirectBound === '1') return;
+          btn.dataset.refDirectBound = '1';
+          btn.type = 'button';
           btn.style.touchAction = 'manipulation';
           btn.setAttribute('aria-pressed', 'false');
+          btn.onclick = function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const frequency = Number(this.dataset.refFreq);
+            const key = this.dataset.refKey || ('note-' + frequency);
+            const label = this.querySelector('.t-main')?.textContent?.trim() || key;
+            if (!Number.isFinite(frequency) || frequency <= 0) {
+              const status = document.getElementById('ref-audio-status');
+              if (status) status.textContent = 'Frecuencia inválida';
+              return;
+            }
+            if (refAudioKey === key) stopReferenceTone();
+            else startReferenceTone(frequency, key, label);
+          };
         });
+
         const stopBtn = document.getElementById('btn-ref-stop');
-        if (stopBtn) {
-          stopBtn.style.touchAction = 'manipulation';
-          stopBtn.classList.add('hidden');
+        if (stopBtn && stopBtn.dataset.refDirectBound !== '1') {
+          stopBtn.dataset.refDirectBound = '1';
+          stopBtn.type = 'button';
+          stopBtn.onclick = function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            stopReferenceTone();
+          };
         }
+        const testBtn = document.getElementById('btn-ref-test');
+        if (testBtn && testBtn.dataset.refDirectBound !== '1') {
+          testBtn.dataset.refDirectBound = '1';
+          testBtn.type = 'button';
+          testBtn.onclick = function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            testReferenceAudio();
+          };
+        }
+        updateReferenceToneUI(null);
       }
 
-      // Alias para mantener compatibilidad con el flujo de navegación existente.
+      // Compatibilidad con el cierre de ventanas flotantes.
       function stopRefTone() { stopReferenceTone(); }
 
 
