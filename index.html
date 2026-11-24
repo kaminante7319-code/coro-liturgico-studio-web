@@ -948,6 +948,44 @@
       border-color: var(--primary);
     }
 
+    /* Atril Inteligente 2.0: navegación táctil entre cantos */
+    #atril-list-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px !important;
+      width: 100%;
+      padding: 5px 8px 7px;
+    }
+    #atril-list-nav .atril-btn {
+      min-height: 42px;
+      min-width: 116px;
+      justify-content: center;
+      padding: 9px 14px;
+      font-size: .82rem;
+      touch-action: manipulation;
+    }
+    #atril-list-nav .atril-btn:disabled {
+      opacity: .38;
+      cursor: not-allowed;
+    }
+    #atril-list-pos {
+      min-width: 48px;
+      text-align: center;
+      font-size: .82rem !important;
+      color: #e2e8f0 !important;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 520px) {
+      #atril-list-nav { gap: 7px !important; }
+      #atril-list-nav .atril-btn {
+        min-width: 0;
+        flex: 1;
+        min-height: 46px;
+        padding: 10px 8px;
+      }
+    }
+
     /* Atril Inteligente 1.0: lectura y desplazamiento accesibles */
     .atril-reading-controls {
       display: flex;
@@ -5337,18 +5375,30 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       function navigateListStep(delta) {
         closeAllFloatingTools();
         const activeList = state.visorListId ? state.lists.find(l => l.id === state.visorListId) : null;
-        if (!activeList) return;
+        if (!activeList || !Array.isArray(activeList.songIds)) return;
         const nextIdx = state.visorListIndex + delta;
         if (nextIdx < 0 || nextIdx >= activeList.songIds.length) return;
+
+        // Al cambiar de canto, detener la lectura anterior y reiniciar desde arriba.
+        if (state.scrollActive) toggleAutoScroll(false);
+        scrollAcc = 0;
+
         state.visorListIndex = nextIdx;
         state.visorSongId = activeList.songIds[nextIdx];
         state.transpose = 0;
         state.capo = 0;
-        document.getElementById('visor-capo-select').value = '0';
+
+        const capoSelect = document.getElementById('visor-capo-select');
+        if (capoSelect) capoSelect.value = '0';
+
         renderVisor();
-        if (!document.getElementById('atril-overlay').classList.contains('hidden')) {
-          document.getElementById('atril-scroll-area').scrollTop = 0;
+        const atrilOpen = !document.getElementById('atril-overlay').classList.contains('hidden');
+        if (atrilOpen) {
+          const scrollArea = document.getElementById('atril-scroll-area');
+          if (scrollArea) scrollArea.scrollTop = 0;
           renderAtrilSheet();
+          const title = document.getElementById('atril-title');
+          if (title) title.scrollIntoView({ block: 'nearest' });
         }
       }
 
