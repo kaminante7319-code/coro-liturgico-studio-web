@@ -2303,6 +2303,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       // ===================================================================
       const state = {
         isAdmin: false,
+        isMember: false,
+        userRole: '',
+        userEmail: '',
         adminPin: DEFAULT_ADMIN_PIN,
         supabaseSession: null,
         supabaseCategories: [],
@@ -2694,10 +2697,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       async function loadSupabaseSongs(admin = false) {
         try {
-          state.supabaseCategories = await supabaseRequest('/rest/v1/categorias?select=id,nombre&order=nombre.asc');
+          state.supabaseCategories = await supabaseRequest('/rest/v1/categorias?select=id,nombre&order=nombre.asc', {}, true);
           const fields = 'id,app_id,titulo,letra,autor,categoria_id,tiempo_liturgico,tono,cifrado,publicado,bpm,notas,audio_url,audio_name';
           const filter = admin ? '' : '&publicado=eq.true';
-          const rows = await supabaseRequest('/rest/v1/cantos?select=' + fields + filter + '&order=titulo.asc', {}, admin);
+          const rows = await supabaseRequest('/rest/v1/cantos?select=' + fields + filter + '&order=titulo.asc', {}, true);
           state.songs = (rows || []).map(mapSupabaseSong);
           if (state.songs.length) state.visorSongId = state.songs[0].id;
           else state.visorSongId = null;
@@ -2823,12 +2826,23 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           body: JSON.stringify({ email, password })
         });
         state.supabaseSession = session;
-        const admins = await supabaseRequest('/rest/v1/admin_users?select=user_id&user_id=eq.' + encodeURIComponent(session.user.id), {}, true);
-        if (!admins || !admins.length) {
-          state.supabaseSession = null;
-          throw new Error('Esta cuenta no tiene permisos de administrador.');
+        const userId = encodeURIComponent(session.user.id);
+        const admins = await supabaseRequest('/rest/v1/admin_users?select=user_id&user_id=eq.' + userId, {}, true);
+        if (admins && admins.length) {
+          state.userRole = 'admin';
+          state.userEmail = session.user.email || email;
+          return session;
         }
-        return session;
+        const members = await supabaseRequest('/rest/v1/authorized_users?select=user_id,active&user_id=eq.' + userId + '&active=eq.true', {}, true);
+        if (members && members.length) {
+          state.userRole = 'member';
+          state.userEmail = session.user.email || email;
+          return session;
+        }
+        state.supabaseSession = null;
+        state.userRole = '';
+        state.userEmail = '';
+        throw new Error('Esta cuenta no está autorizada. Solicita acceso al administrador.');
       }
 
       // 4. ADMIN PERMISSIONS (PROTECTS MASTER CANTORAL ONLY; LISTS ALWAYS OPEN)
@@ -2841,7 +2855,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function setAdminMode(unlocked) {
         state.isAdmin = Boolean(unlocked);
-        if (!unlocked) state.supabaseSession = null;
+        state.isMember = Boolean(!unlocked && state.supabaseSession && state.userRole === 'member');
+        if (!unlocked && !state.isMember) { state.supabaseSession = null; state.userRole = ''; state.userEmail = ''; }
         syncAdminUI();
         renderSongsList();
         renderVisor();
@@ -2857,11 +2872,16 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           roleBtn.classList.add('admin-unlocked');
           roleBtn.title = 'Abrir Panel de Administrador';
           brandSub.textContent = 'Modo Administrador';
+        } else if (state.isMember) {
+          roleText.textContent = '👥 Integrante';
+          roleBtn.classList.remove('admin-unlocked');
+          roleBtn.title = 'Cerrar sesión de integrante';
+          brandSub.textContent = 'Acceso de Integrante';
         } else {
           roleText.textContent = '🔒 Coro';
           roleBtn.classList.remove('admin-unlocked');
-          roleBtn.title = 'Ingresar como Administrador';
-          brandSub.textContent = 'Modo Coro';
+          roleBtn.title = 'Ingresar con cuenta autorizada';
+          brandSub.textContent = 'Acceso privado';
         }
 
         // Cantoral Admin controls
@@ -2879,15 +2899,15 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         openModal(`
           <div class="row-between">
             <div>
-              <h3 class="section-title">Acceso de Administrador</h3>
-              <p class="section-desc">Inicia sesión con tu cuenta autorizada de Supabase.</p>
+              <h3 class="section-title">Acceso privado al coro</h3>
+              <p class="section-desc">Ingresa con el correo y contraseña que te proporcionó el administrador.</p>
             </div>
             <button type="button" id="adm-login-close" class="mini-icon-btn" style="font-size:1.3rem;">&times;</button>
           </div>
           <form id="admin-login-form" style="display:flex; flex-direction:column; gap:11px;">
             <div>
               <label class="field-label" for="adm-email-input">Correo electrónico</label>
-              <input id="adm-email-input" type="email" autocomplete="username" class="input" placeholder="Tu correo de administrador" required />
+              <input id="adm-email-input" type="email" autocomplete="username" class="input" placeholder="Correo autorizado" required />
             </div>
             <div>
               <label class="field-label" for="adm-password-input">Contraseña</label>
@@ -2916,9 +2936,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               document.getElementById('adm-password-input').value
             );
             closeModal();
-            setAdminMode(true);
-            await loadSupabaseSongs(true);
-            showToast('Sesión de administrador iniciada');
+            setAdminMode(state.userRole === 'admin');
+            await loadSupabaseSongs(state.userRole === 'admin');
+            showToast(state.userRole === 'admin' ? 'Sesión de administrador iniciada' : 'Bienvenido al coro');
           } catch (error) {
             errEl.textContent = error.message || 'No fue posible iniciar sesión.';
             errEl.classList.remove('hidden');
@@ -5416,12 +5436,29 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         // Top Bar
         document.getElementById('btn-admin-role').onclick = () => {
           if (state.isAdmin) openAdminPanelModal();
-          else openAdminLoginModal();
+          else if (state.isMember) {
+            state.supabaseSession = null;
+            state.isMember = false;
+            state.userRole = '';
+            state.userEmail = '';
+            setAdminMode(false);
+            state.songs = [];
+            renderSongsList();
+            renderVisor();
+            showToast('Sesión cerrada');
+          } else openAdminLoginModal();
         };
         document.getElementById('btn-notice-unlock').onclick = openAdminLoginModal;
         document.getElementById('btn-banner-lock').onclick = () => {
+          state.supabaseSession = null;
+          state.isMember = false;
+          state.userRole = '';
+          state.userEmail = '';
           setAdminMode(false);
-          showToast('Sesión bloqueada • Modo Coro');
+          state.songs = [];
+          renderSongsList();
+          renderVisor();
+          showToast('Sesión cerrada');
         };
         document.getElementById('btn-open-theme').onclick = openThemeModal;
         document.getElementById('btn-fullscreen-top').onclick = toggleFullscreen;
@@ -5728,6 +5765,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const brandLogoBtn = document.getElementById('btn-brand-logo');
         if (brandLogoBtn) brandLogoBtn.onclick = openAboutLogoModal;
         loadStorage();
+        // No mostrar copias locales del repertorio antes de validar el acceso privado.
+        state.songs = [];
+        state.visorSongId = null;
         applyTheme(state.theme.primary, state.theme.dark, false);
         populateCantoralFilters();
         bindEvents();
@@ -5744,7 +5784,13 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         renderReferenceToneButtons();
         renderRecordings();
         loadSavedRecordings();
-        hydrateFromIndexedDB().then(() => loadSupabaseSongs(false));
+        hydrateFromIndexedDB().then(() => {
+          // El repertorio privado solo se consulta después de validar una cuenta autorizada.
+          state.songs = [];
+          state.visorSongId = null;
+          renderSongsList();
+          renderVisor();
+        });
 
         // Gestos horizontales en Visor y Modo Atril para cambiar de canto en una lista
         let touchStartX = 0, touchStartY = 0;
