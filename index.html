@@ -3102,44 +3102,65 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('adm-panel-close').onclick = closeModal;
         document.getElementById('adm-members-refresh').onclick = loadAuthorizedMembers;
         loadAuthorizedMembers();
-        document.getElementById('adm-invite-member-form').onsubmit = async e => {
+        const inviteForm = document.getElementById('adm-invite-member-form');
+        inviteForm.addEventListener('submit', async e => {
           e.preventDefault();
-          if (!state.isAdmin || !state.supabaseSession?.access_token) {
-            showToast('Inicia sesión como administrador para invitar integrantes.');
-            return;
-          }
           const emailInput = document.getElementById('adm-invite-email');
           const submit = document.getElementById('adm-invite-submit');
           const status = document.getElementById('adm-invite-status');
-          const email = emailInput.value.trim().toLowerCase();
+          const email = (emailInput?.value || '').trim().toLowerCase();
+
+          if (!status || !submit) return;
+          if (!email) {
+            status.textContent = 'Escribe primero el correo electrónico.';
+            emailInput?.focus();
+            return;
+          }
+          if (!state.isAdmin || !state.supabaseSession?.access_token) {
+            status.textContent = 'Sesión de administrador no válida. Cierra sesión e inicia nuevamente.';
+            return;
+          }
+
           submit.disabled = true;
           submit.textContent = 'Enviando…';
-          status.textContent = 'Procesando invitación segura…';
+          status.textContent = 'Conectando con Supabase…';
           try {
             const response = await fetch(SUPABASE_URL + '/functions/v1/invite-members', {
               method: 'POST',
+              mode: 'cors',
               headers: {
                 'Content-Type': 'application/json',
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: 'Bearer ' + state.supabaseSession.access_token
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': 'Bearer ' + state.supabaseSession.access_token
               },
               body: JSON.stringify({ email })
             });
+
             const raw = await response.text();
             let result = {};
-            try { result = raw ? JSON.parse(raw) : {}; } catch (_) { result = { error: raw }; }
-            if (!response.ok) throw new Error(result.error || result.message || 'No se pudo enviar la invitación.');
-            status.textContent = 'Invitación enviada a ' + email + '. La cuenta quedará autorizada al aceptar.';
+            try { result = raw ? JSON.parse(raw) : {}; }
+            catch (_) { result = { error: raw || 'Respuesta vacía del servidor' }; }
+
+            if (!response.ok || result.error) {
+              const detail = result.error || result.message || result.msg || raw || 'Error sin detalle';
+              throw new Error('HTTP ' + response.status + ': ' + detail);
+            }
+
+            status.textContent = 'Respuesta del servidor: ' +
+              (result.message || result.msg || 'Solicitud aceptada') +
+              '. Revisa el correo de ' + email + ' y la carpeta de spam.';
             emailInput.value = '';
-            showToast('Invitación enviada');
+            showToast('Supabase aceptó la solicitud de invitación.');
             await loadAuthorizedMembers();
           } catch (error) {
-            status.textContent = 'No se pudo invitar: ' + (error.message || 'Error de conexión');
+            console.error('Error al invitar integrante:', error);
+            status.textContent = 'No se completó la invitación. ' +
+              (error?.message || 'Error de conexión. Revisa Logs en Supabase.');
           } finally {
             submit.disabled = false;
             submit.textContent = 'Enviar invitación';
           }
-        };
+        });
         document.getElementById('adm-lock-now').onclick = () => {
           closeModal();
           setAdminMode(false);
