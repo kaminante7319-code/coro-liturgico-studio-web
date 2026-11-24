@@ -4984,7 +4984,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         return CHROMATIC_SHARP[(idx + steps % 12 + 12) % 12];
       }
 
-      const SPANISH_CHORD_ROOTS = { Do:'C', Reb:'Db', Re:'D', Mib:'Eb', Mi:'E', Fa:'F', Solb:'Gb', Sol:'G', Lab:'Ab', La:'A', Sib:'Bb', Si:'B' };
+      const SPANISH_CHORD_ROOTS = { Do:'C', 'Do#':'C#', Dob:'Cb', Reb:'Db', Re:'D', 'Re#':'D#', Mib:'Eb', Mi:'E', 'Mi#':'E#', Fab:'Fb', Fa:'F', 'Fa#':'F#', Solb:'Gb', Sol:'G', 'Sol#':'G#', Lab:'Ab', La:'A', 'La#':'A#', Sib:'Bb', Si:'B', 'Si#':'B#' };
       const ENGLISH_TO_SPANISH_ROOTS = { C:'Do', 'C#':'Do#', Db:'Reb', D:'Re', 'D#':'Re#', Eb:'Mib', E:'Mi', F:'Fa', 'F#':'Fa#', Gb:'Solb', G:'Sol', 'G#':'Sol#', Ab:'Lab', A:'La', 'A#':'La#', Bb:'Sib', B:'Si' };
       function spanishChordToEnglish(chord) {
         return String(chord).replace(/^([A-Za-záéíóúñ#]+)(.*?)(?:\/([A-Za-záéíóúñ#]+))?$/i, (whole, root, suffix, bass) => {
@@ -5002,15 +5002,39 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
       function transposeChord(chord, steps) {
         const source = String(chord || '').trim();
-        const usesSpanish = /^(Do|Reb|Re|Mib|Mi|Fa|Solb|Sol|Lab|La|Sib|Si)(?:m|maj|min|dim|aug|sus|add|[0-9]|#|b|\/|$)/i.test(source);
-        const english = spanishChordToEnglish(source);
-        if (!steps) return source;
-        const shifted = english.replace(/^([A-G][#b]?)([^/]*)(\/([A-G][#b]?))?$/, (_, root, suffix, _sl, bass) => {
-          const r = transposeNote(root, steps);
-          const b = bass ? '/' + transposeNote(bass, steps) : '';
-          return r + (suffix || '') + b;
-        });
-        return usesSpanish ? englishChordToSpanish(shifted) : shifted;
+        if (!source || !Number.isFinite(Number(steps)) || Number(steps) % 12 === 0) return source;
+
+        // Reconoce primero la raíz completa (Do, Reb, Sol#, etc.) para no
+        // confundir letras del sufijo (m, maj7, sus4...) con la nota raíz.
+                const slashParts = source.split('/');
+        if (slashParts.length > 2) return source;
+
+        const parsePart = part => {
+          const value = String(part || '').trim();
+          const roots = /^(?:Do#|Dob|Reb|Re#|Mib|Mi#|Fab|Fa#|Solb|Sol#|Lab|La#|Sib|Si#|Do|Re|Mi|Fa|Sol|La|Si|C#|Db|D#|Eb|E#|Fb|F#|Gb|G#|Ab|A#|Bb|B#|Cb|C|D|E|F|G|A|B)/i;
+          const match = value.match(roots);
+          if (!match) return null;
+          const root = match[0];
+          const suffix = value.slice(root.length);
+          const isSpanish = /^(Do#|Dob|Reb|Re#|Mib|Mi#|Fab|Fa#|Solb|Sol#|Lab|La#|Sib|Si#|Do|Re|Mi|Fa|Sol|La|Si)$/i.test(root);
+          const englishRoot = isSpanish ? (SPANISH_CHORD_ROOTS[root] || root) : root;
+          if (!/^[A-G](?:#|b)?$/i.test(englishRoot)) return null;
+          return { root: englishRoot, suffix, isSpanish };
+        };
+
+        const rootPart = parsePart(slashParts[0]);
+        if (!rootPart) return source;
+        const shiftedRoot = transposeNote(rootPart.root, Number(steps));
+        const formattedRoot = rootPart.isSpanish ? (ENGLISH_TO_SPANISH_ROOTS[shiftedRoot] || shiftedRoot) : shiftedRoot;
+
+        let result = formattedRoot + rootPart.suffix;
+        if (slashParts.length === 2) {
+          const bassPart = parsePart(slashParts[1]);
+          if (!bassPart || bassPart.suffix) return source;
+          const shiftedBass = transposeNote(bassPart.root, Number(steps));
+          result += '/' + (bassPart.isSpanish ? (ENGLISH_TO_SPANISH_ROOTS[shiftedBass] || shiftedBass) : shiftedBass);
+        }
+        return result;
       }
 
       const OPEN_GUITAR_VOICINGS = {
