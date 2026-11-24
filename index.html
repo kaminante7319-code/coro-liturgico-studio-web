@@ -3029,7 +3029,13 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             </div>
             <div id="authorized-members-status" style="font-size:.78rem; color:var(--text-muted);">Preparando lista…</div>
             <div id="authorized-members-list"></div>
-            <p style="margin:0; font-size:.72rem; color:var(--text-muted);">Para agregar una persona nueva, primero invítala desde Supabase Authentication y después registra su cuenta en <code>authorized_users</code>. Esta pantalla administra el acceso de cuentas existentes.</p>
+            <form id="adm-invite-member-form" style="display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border); border-radius:14px;">
+              <span class="field-label" style="margin:0;">✉️ Invitar nuevo integrante</span>
+              <input id="adm-invite-email" type="email" class="input" placeholder="correo@ejemplo.com" autocomplete="email" required />
+              <button id="adm-invite-submit" type="submit" class="btn btn-primary btn-sm">Enviar invitación</button>
+              <div id="adm-invite-status" style="font-size:.73rem; color:var(--text-muted);">Se enviará un correo para que la persona configure su contraseña. La invitación requiere activar la función segura en Supabase.</div>
+            </form>
+            <p style="margin:0; font-size:.72rem; color:var(--text-muted);">Las invitaciones se procesan en el servidor de Supabase. La clave secreta nunca se guarda en esta aplicación.</p>
           </section>
 
           <div class="divider"></div>
@@ -3096,6 +3102,44 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('adm-panel-close').onclick = closeModal;
         document.getElementById('adm-members-refresh').onclick = loadAuthorizedMembers;
         loadAuthorizedMembers();
+        document.getElementById('adm-invite-member-form').onsubmit = async e => {
+          e.preventDefault();
+          if (!state.isAdmin || !state.supabaseSession?.access_token) {
+            showToast('Inicia sesión como administrador para invitar integrantes.');
+            return;
+          }
+          const emailInput = document.getElementById('adm-invite-email');
+          const submit = document.getElementById('adm-invite-submit');
+          const status = document.getElementById('adm-invite-status');
+          const email = emailInput.value.trim().toLowerCase();
+          submit.disabled = true;
+          submit.textContent = 'Enviando…';
+          status.textContent = 'Procesando invitación segura…';
+          try {
+            const response = await fetch(SUPABASE_URL + '/functions/v1/invite-member', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: 'Bearer ' + state.supabaseSession.access_token
+              },
+              body: JSON.stringify({ email })
+            });
+            const raw = await response.text();
+            let result = {};
+            try { result = raw ? JSON.parse(raw) : {}; } catch (_) { result = { error: raw }; }
+            if (!response.ok) throw new Error(result.error || result.message || 'No se pudo enviar la invitación.');
+            status.textContent = 'Invitación enviada a ' + email + '. La cuenta quedará autorizada al aceptar.';
+            emailInput.value = '';
+            showToast('Invitación enviada');
+            await loadAuthorizedMembers();
+          } catch (error) {
+            status.textContent = 'No se pudo invitar: ' + (error.message || 'Error de conexión');
+          } finally {
+            submit.disabled = false;
+            submit.textContent = 'Enviar invitación';
+          }
+        };
         document.getElementById('adm-lock-now').onclick = () => {
           closeModal();
           setAdminMode(false);
