@@ -2049,6 +2049,17 @@ input, select, textarea {
   .modal-card { border-radius: 22px; }
   .mini-tool-window { border-radius: 20px; }
 }
+
+/* Panel de personalización cromática del editor */
+#modal-card.editor-song-workspace .editor-colors-dropdown{min-width:190px}
+#modal-card.editor-song-workspace .editor-colors-panel{width:min( min(88vw, 440px), calc(100vw - 32px));background:#10233d;color:#fffaf0;padding:13px}
+#modal-card.editor-song-workspace .editor-color-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+#modal-card.editor-song-workspace .editor-color-grid label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:650;min-width:0}
+#modal-card.editor-song-workspace .editor-color-grid input[type=color]{width:42px;height:32px;flex:0 0 42px;padding:2px;border:1px solid rgba(255,255,255,.35);border-radius:7px;background:transparent;cursor:pointer}
+#modal-card.editor-song-workspace .editor-colors-hint{display:block;margin-top:9px;color:#d8d1c1;font-size:11px;line-height:1.4}
+#modal-card.editor-song-workspace .editor-colors-panel .btn{width:100%;justify-content:center}
+@media(max-width:760px){#modal-card.editor-song-workspace .editor-colors-panel{position:fixed;left:8px;right:8px;top:112px;width:auto;max-height:62vh;overflow:auto}#modal-card.editor-song-workspace .editor-color-grid{grid-template-columns:1fr}}
+
 </style>
 
 <style id="cls-interface-6-0">
@@ -5390,6 +5401,23 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           <details class="editor-dropdown">
             <summary>◉ Revisión</summary>
             <div class="editor-dropdown-panel" id="editor-review-panel"></div>
+          </details>
+          <details class="editor-dropdown editor-colors-dropdown">
+            <summary>🎨 Personalizar colores</summary>
+            <div class="editor-dropdown-panel editor-colors-panel" id="editor-colors-panel">
+              <div class="editor-color-grid">
+                <label>Fondo del editor <input type="color" data-editor-color="workspace" value="#10233d"></label>
+                <label>Fondo del área de trabajo <input type="color" data-editor-color="surface" value="#fffaf0"></label>
+                <label>Fondo de la letra <input type="color" data-editor-color="lyricsBg" value="#fffdf7"></label>
+                <label>Texto general <input type="color" data-editor-color="text" value="#17253a"></label>
+                <label>Texto de la letra <input type="color" data-editor-color="lyricsText" value="#17253a"></label>
+                <label>Color de títulos y acentos <input type="color" data-editor-color="accent" value="#c9a45f"></label>
+                <label>Fondo de acordes <input type="color" data-editor-color="chordBg" value="#f4efdf"></label>
+                <label>Texto de acordes <input type="color" data-editor-color="chordText" value="#10233d"></label>
+              </div>
+              <button type="button" id="editor-colors-reset" class="btn btn-soft btn-sm">Restablecer colores originales</button>
+              <small class="editor-colors-hint">Los cambios se aplican al instante y se conservan en este dispositivo.</small>
+            </div>
           </details>`;
         songForm.insertBefore(dropdownBar, songForm.firstChild);
 
@@ -5418,6 +5446,44 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           menu.addEventListener('toggle', () => {
             if (menu.open) dropdownBar.querySelectorAll('details').forEach(other => { if (other !== menu) other.open = false; });
           });
+        });
+        // Personalización visual del editor: aplicación inmediata y persistencia local.
+        const editorColorDefaults = {
+          workspace: '#10233d', surface: '#fffaf0', lyricsBg: '#fffdf7',
+          text: '#17253a', lyricsText: '#17253a', accent: '#c9a45f',
+          chordBg: '#f4efdf', chordText: '#10233d'
+        };
+        const editorColorStorageKey = 'voxDominiEditorColorsV1';
+        let savedEditorColors = {};
+        try { savedEditorColors = JSON.parse(localStorage.getItem(editorColorStorageKey) || '{}') || {}; } catch (_) { savedEditorColors = {}; }
+        const editorColorInputs = [...dropdownBar.querySelectorAll('[data-editor-color]')];
+        const applyEditorColors = colors => {
+          const c = { ...editorColorDefaults, ...colors };
+          editorCard.style.background = `linear-gradient(145deg, ${c.workspace}, #091426 65%, ${c.workspace})`;
+          editorCard.style.color = c.surface;
+          songForm.style.background = c.surface;
+          songForm.style.color = c.text;
+          songForm.style.borderColor = c.accent;
+          const lyricArea = document.getElementById('sf-lyrics');
+          if (lyricArea) { lyricArea.style.background = c.lyricsBg; lyricArea.style.color = c.lyricsText; }
+          songForm.querySelectorAll('.field-label, .section-title').forEach(el => { el.style.color = c.text; });
+          songForm.querySelectorAll('.chord-chip').forEach(el => {
+            el.style.background = c.chordBg; el.style.color = c.chordText; el.style.borderColor = c.accent;
+          });
+          dropdownBar.querySelectorAll('.editor-dropdown summary').forEach(el => { el.style.borderColor = c.accent; });
+          dropdownBar.querySelectorAll('.editor-dropdown-panel').forEach(el => { el.style.borderColor = c.accent; });
+          editorColorInputs.forEach(input => { if (c[input.dataset.editorColor]) input.value = c[input.dataset.editorColor]; });
+        };
+        const readEditorColors = () => Object.fromEntries(editorColorInputs.map(input => [input.dataset.editorColor, input.value]));
+        applyEditorColors(savedEditorColors);
+        editorColorInputs.forEach(input => input.addEventListener('input', () => {
+          const colors = readEditorColors(); applyEditorColors(colors);
+          try { localStorage.setItem(editorColorStorageKey, JSON.stringify(colors)); } catch (_) {}
+        }));
+        document.getElementById('editor-colors-reset').addEventListener('click', () => {
+          applyEditorColors(editorColorDefaults);
+          try { localStorage.removeItem(editorColorStorageKey); } catch (_) {}
+          showToast('Colores originales restaurados');
         });
         dropdownBar.querySelectorAll('[data-editor-insert]').forEach(button => {
           button.addEventListener('click', () => {
