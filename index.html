@@ -2609,7 +2609,10 @@ body.home-active #view-inicio .home-brand-band span {
 #modal-card.editor-song-workspace #song-form{max-width:1120px;margin:0 auto;padding:16px;border:1px solid rgba(201,164,95,.35);border-radius:15px;background:rgba(255,250,240,.98);color:#17253a;box-shadow:0 16px 45px rgba(0,0,0,.24)}
 #modal-card.editor-song-workspace .editor-dropdown-bar{max-width:1120px;margin:0 auto 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 #modal-card.editor-song-workspace .editor-dropdown{position:relative;min-width:150px}
-#modal-card.editor-song-workspace .editor-dropdown summary{list-style:none;cursor:pointer;user-select:none;padding:9px 13px;border:1px solid rgba(201,164,95,.65);border-radius:9px;background:rgba(255,250,240,.08);color:#fffaf0;font-size:12px;font-weight:750;letter-spacing:.2px}
+#modal-card.editor-song-workspace .editor-dropdown summary{list-style:none;cursor:pointer;user-select:none;padding:10px 14px;border:1px solid #c9a45f;border-radius:9px;background:linear-gradient(145deg,#fffaf0,#f1e5c9);color:#10233d;font-size:12px;font-weight:850;letter-spacing:.35px;text-transform:uppercase;box-shadow:0 2px 8px rgba(0,0,0,.18);text-shadow:0 1px rgba(255,255,255,.75)}
+#modal-card.editor-song-workspace .editor-dropdown summary:focus-visible{outline:3px solid #f2cf79;outline-offset:3px}
+#modal-card.editor-song-workspace .editor-dropdown summary:hover{background:linear-gradient(145deg,#fffdf7,#e8d4a8);border-color:#f0cf83;color:#091426}
+#modal-card.editor-song-workspace .editor-dropdown[open] summary{background:linear-gradient(145deg,#d9bd7b,#c9a45f);border-color:#fff0c5;color:#091426;box-shadow:0 3px 12px rgba(201,164,95,.3)}
 #modal-card.editor-song-workspace .editor-dropdown summary::-webkit-details-marker{display:none}
 #modal-card.editor-song-workspace .editor-dropdown summary:after{content:'⌄';float:right;color:#e7c78b;margin-left:14px}
 #modal-card.editor-song-workspace .editor-dropdown[open] summary{background:rgba(201,164,95,.17);border-color:#d7b979}
@@ -2634,7 +2637,7 @@ body.home-active #view-inicio .home-brand-band span {
 #modal-card.editor-song-workspace .editor-metadata-panel .row-between{gap:8px}
 @media(max-width:760px){#modal-card.editor-song-workspace .editor-metadata-panel{position:fixed;left:8px;right:8px;top:112px;width:auto;grid-template-columns:1fr;max-height:62vh}#modal-card.editor-song-workspace .editor-metadata-panel>div:first-child,#modal-card.editor-song-workspace .editor-metadata-panel>div:nth-last-child(2){grid-column:auto}}
 
-@media(max-width:760px){#modal-card.editor-song-workspace{padding:64px 8px 14px}#modal-card.editor-song-workspace #song-form{padding:11px}#modal-card.editor-song-workspace .editor-dropdown-bar{gap:6px}#modal-card.editor-song-workspace .editor-dropdown{min-width:0;flex:1}#modal-card.editor-song-workspace .editor-dropdown summary{padding:9px 8px;font-size:11px}#modal-card.editor-song-workspace .editor-dropdown-panel{position:fixed;left:8px;right:8px;top:112px;min-width:0;max-width:none;max-height:55vh}#modal-card.editor-song-workspace #sf-lyrics{min-height:42vh}}
+@media(max-width:760px){#modal-card.editor-song-workspace{padding:64px 8px 14px}#modal-card.editor-song-workspace #song-form{padding:11px}#modal-card.editor-song-workspace .editor-dropdown-bar{gap:6px}#modal-card.editor-song-workspace .editor-dropdown{min-width:0;flex:1}#modal-card.editor-song-workspace .editor-dropdown summary{padding:9px 8px;font-size:10px;min-height:38px;display:flex;align-items:center;justify-content:space-between}#modal-card.editor-song-workspace .editor-dropdown-panel{position:fixed;left:8px;right:8px;top:112px;min-width:0;max-width:none;max-height:55vh}#modal-card.editor-song-workspace #sf-lyrics{min-height:42vh}}
 
 </style>
 
@@ -5389,23 +5392,23 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         dropdownBar.setAttribute('aria-label', 'Menús de edición');
         dropdownBar.innerHTML = `
           <details class="editor-dropdown editor-metadata-dropdown">
-            <summary>⚙ Datos del canto</summary>
+            <summary title="Identificación y parámetros del canto">⚙ Datos del canto</summary>
             <div class="editor-dropdown-panel editor-metadata-panel" id="editor-metadata-panel"></div>
           </details>
           <details class="editor-dropdown">
-            <summary>♫ Acordes</summary>
+            <summary title="Seleccionar e insertar acordes">♫ Acordes</summary>
             <div class="editor-dropdown-panel" id="editor-chords-panel"></div>
           </details>
           <details class="editor-dropdown">
-            <summary>＋ Insertar sección</summary>
+            <summary title="Insertar estrofas, coro y puente">＋ Insertar sección</summary>
             <div class="editor-dropdown-panel" id="editor-sections-panel"></div>
           </details>
           <details class="editor-dropdown">
-            <summary>◉ Revisión</summary>
+            <summary title="Opciones de revisión del canto">◉ Revisión</summary>
             <div class="editor-dropdown-panel" id="editor-review-panel"></div>
           </details>
           <details class="editor-dropdown editor-colors-dropdown">
-            <summary>🎨 Personalizar colores</summary>
+            <summary title="Cambiar los colores del editor">🎨 Personalizar colores</summary>
             <div class="editor-dropdown-panel editor-colors-panel" id="editor-colors-panel">
               <div class="editor-color-grid">
                 <label>Fondo del editor <input type="color" data-editor-color="workspace" value="#10233d"></label>
