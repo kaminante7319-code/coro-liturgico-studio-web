@@ -2020,7 +2020,36 @@
     @media (max-width: 380px) {
       .lyric-line, .lyric-txt { font-size: 1.02rem; line-height: 1.7; }
     }
-  </style>
+  
+/* iPadOS-inspired refinement: calm surfaces, rounded controls, clear hierarchy */
+:root {
+  --ios-radius: 16px;
+}
+.card, .modal-card, .mini-tool-window, .list-tab-card, .song-card,
+.tool-menu-btn, .nav-item, .input, input, select, textarea {
+  border-radius: var(--ios-radius);
+}
+.card, .modal-card, .mini-tool-window {
+  box-shadow: 0 8px 28px rgba(10, 24, 46, .10);
+}
+.btn, .mini-icon-btn, .tone-btn, .list-tab-card, .tool-menu-btn {
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.btn:active, .mini-icon-btn:active, .tone-btn:active, .list-tab-card:active {
+  transform: scale(.97);
+}
+.tone-btn {
+  min-height: 58px;
+  border-radius: 14px;
+}
+input, select, textarea {
+  min-height: 42px;
+}
+@media (min-width: 760px) {
+  .modal-card { border-radius: 22px; }
+  .mini-tool-window { border-radius: 20px; }
+}
+</style>
 
 <style id="cls-interface-6-0">
 /* ================================================================
@@ -2493,40 +2522,39 @@ html{background:var(--bg)} body{background:radial-gradient(ellipse at 50% -20%,#
         <div class="row-between" style="margin-bottom:10px;">
           <div>
             <h2 class="section-title">Tonos de Referencia</h2>
-            <p class="section-desc">Toca una nota para escucharla o detenerla.</p>
+            <p class="section-desc">Oprime una nota para escucharla.</p>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button id="btn-ref-test" type="button" class="btn btn-secondary btn-sm">🔊 Probar audio</button>
-            <button id="btn-ref-stop" type="button" class="btn btn-danger btn-sm hidden">Silenciar</button>
+            <button id="btn-ref-stop" type="button" class="btn btn-danger btn-sm hidden" onclick="stopRefTone()">Silenciar</button>
           </div>
         </div>
-        <span id="ref-audio-status" class="section-desc" style="display:block;margin-bottom:10px;">Audio listo para probar</span>
+        <span id="ref-audio-status" class="section-desc" style="display:block;margin-bottom:10px;"></span>
 
         <span class="field-label">Guitarra (6 cuerdas E2–E4)</span>
         <div id="guitar-tones-grid" class="tone-grid-6" style="margin-bottom:16px;">
-<button type="button" class="tone-btn" data-ref-key="g-0" data-ref-freq="82.41"><span class="t-main">E2</span><span class="t-sub">6ª • 82 Hz</span></button>
-<button type="button" class="tone-btn" data-ref-key="g-1" data-ref-freq="110.00"><span class="t-main">A2</span><span class="t-sub">5ª • 110 Hz</span></button>
-<button type="button" class="tone-btn" data-ref-key="g-2" data-ref-freq="146.83"><span class="t-main">D3</span><span class="t-sub">4ª • 147 Hz</span></button>
-<button type="button" class="tone-btn" data-ref-key="g-3" data-ref-freq="196.00"><span class="t-main">G3</span><span class="t-sub">3ª • 196 Hz</span></button>
-<button type="button" class="tone-btn" data-ref-key="g-4" data-ref-freq="246.94"><span class="t-main">B3</span><span class="t-sub">2ª • 247 Hz</span></button>
-<button type="button" class="tone-btn" data-ref-key="g-5" data-ref-freq="329.63"><span class="t-main">E4</span><span class="t-sub">1ª • 330 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-0" data-ref-freq="82.41" onclick="playReferenceTone(this)"><span class="t-main">E2</span><span class="t-sub">6ª • 82 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-1" data-ref-freq="110.00" onclick="playReferenceTone(this)"><span class="t-main">A2</span><span class="t-sub">5ª • 110 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-2" data-ref-freq="146.83" onclick="playReferenceTone(this)"><span class="t-main">D3</span><span class="t-sub">4ª • 147 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-3" data-ref-freq="196.00" onclick="playReferenceTone(this)"><span class="t-main">G3</span><span class="t-sub">3ª • 196 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-4" data-ref-freq="246.94" onclick="playReferenceTone(this)"><span class="t-main">B3</span><span class="t-sub">2ª • 247 Hz</span></button>
+<button type="button" class="tone-btn" data-ref-key="g-5" data-ref-freq="329.63" onclick="playReferenceTone(this)"><span class="t-main">E4</span><span class="t-sub">1ª • 330 Hz</span></button>
         </div>
 
 
         <span class="field-label">Escala Vocal (C4–B4)</span>
         <div id="vocal-tones-grid" class="tone-grid-12">
-<button type="button" class="tone-btn" data-ref-key="v-0" data-ref-freq="261.63"><span class="t-main">C4</span><span class="t-sub">Do</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-1" data-ref-freq="277.18"><span class="t-main">C#4</span><span class="t-sub">Do#</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-2" data-ref-freq="293.66"><span class="t-main">D4</span><span class="t-sub">Re</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-3" data-ref-freq="311.13"><span class="t-main">D#4</span><span class="t-sub">Re#</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-4" data-ref-freq="329.63"><span class="t-main">E4</span><span class="t-sub">Mi</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-5" data-ref-freq="349.23"><span class="t-main">F4</span><span class="t-sub">Fa</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-6" data-ref-freq="369.99"><span class="t-main">F#4</span><span class="t-sub">Fa#</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-7" data-ref-freq="392.00"><span class="t-main">G4</span><span class="t-sub">Sol</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-8" data-ref-freq="415.30"><span class="t-main">G#4</span><span class="t-sub">Sol#</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-9" data-ref-freq="440.00"><span class="t-main">A4</span><span class="t-sub">La 440</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-10" data-ref-freq="466.16"><span class="t-main">A#4</span><span class="t-sub">Si♭</span></button>
-<button type="button" class="tone-btn" data-ref-key="v-11" data-ref-freq="493.88"><span class="t-main">B4</span><span class="t-sub">Si</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-0" data-ref-freq="261.63" onclick="playReferenceTone(this)"><span class="t-main">C4</span><span class="t-sub">Do</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-1" data-ref-freq="277.18" onclick="playReferenceTone(this)"><span class="t-main">C#4</span><span class="t-sub">Do#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-2" data-ref-freq="293.66" onclick="playReferenceTone(this)"><span class="t-main">D4</span><span class="t-sub">Re</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-3" data-ref-freq="311.13" onclick="playReferenceTone(this)"><span class="t-main">D#4</span><span class="t-sub">Re#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-4" data-ref-freq="329.63" onclick="playReferenceTone(this)"><span class="t-main">E4</span><span class="t-sub">Mi</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-5" data-ref-freq="349.23" onclick="playReferenceTone(this)"><span class="t-main">F4</span><span class="t-sub">Fa</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-6" data-ref-freq="369.99" onclick="playReferenceTone(this)"><span class="t-main">F#4</span><span class="t-sub">Fa#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-7" data-ref-freq="392.00" onclick="playReferenceTone(this)"><span class="t-main">G4</span><span class="t-sub">Sol</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-8" data-ref-freq="415.30" onclick="playReferenceTone(this)"><span class="t-main">G#4</span><span class="t-sub">Sol#</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-9" data-ref-freq="440.00" onclick="playReferenceTone(this)"><span class="t-main">A4</span><span class="t-sub">La 440</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-10" data-ref-freq="466.16" onclick="playReferenceTone(this)"><span class="t-main">A#4</span><span class="t-sub">Si♭</span></button>
+<button type="button" class="tone-btn" data-ref-key="v-11" data-ref-freq="493.88" onclick="playReferenceTone(this)"><span class="t-main">B4</span><span class="t-sub">Si</span></button>
         </div>
       </div>
 
@@ -3108,8 +3136,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         });
 
         try {
-          const l = JSON.parse(localStorage.getItem(STORAGE.LISTS) || 'null');
-          if (Array.isArray(l) && l.length > 0) {
+          const rawLists = localStorage.getItem(STORAGE.LISTS);
+          const l = rawLists === null ? null : JSON.parse(rawLists);
+          // An explicitly saved empty array means the user deleted every list.
+          // Do not replace it with DEFAULT_LISTS on the next launch.
+          if (Array.isArray(l)) {
             state.lists = l.map(item => ({
               id: item.id || ('list-' + Date.now() + Math.random()),
               name: item.name || 'Listado',
@@ -3156,15 +3187,18 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       async function idbSet(key, value) {
+        const db = await openAppDB();
         try {
-          const db = await openAppDB();
           await new Promise((resolve, reject) => {
             const tx = db.transaction('kv', 'readwrite');
             tx.objectStore('kv').put({ key, value, updatedAt: Date.now() });
-            tx.oncomplete = () => { db.close(); resolve(); };
-            tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error || new Error('Error al guardar en IndexedDB'));
+            tx.onabort = () => reject(tx.error || new Error('Guardado cancelado en IndexedDB'));
           });
-        } catch (e) {}
+        } finally {
+          db.close();
+        }
       }
 
       async function idbGet(key) {
@@ -3190,17 +3224,27 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         });
       }
 
-      function saveSongs() {
-        idbSet('songs', state.songs);
+      async function saveSongs() {
+        await idbSet('songs', state.songs);
         try {
           localStorage.setItem(STORAGE.SONGS, JSON.stringify(stripHeavyAudioForLocalStorage(state.songs)));
         } catch (e) {}
       }
 
-      function saveLists() {
-        idbSet('lists', state.lists);
-        try { localStorage.setItem(STORAGE.LISTS, JSON.stringify(state.lists)); } catch (e) {}
+      async function saveLists() {
+        const snapshot = JSON.stringify(state.lists);
+        // Persist synchronously first, including [] as an explicit "all deleted" state.
+        localStorage.setItem(STORAGE.LISTS, snapshot);
         updateListasNavBadge();
+        try {
+          await idbSet('lists', state.lists);
+          return true;
+        } catch (err) {
+          console.error('No se pudo guardar la lista en IndexedDB:', err);
+          // Keep localStorage as the durable fallback; surface the failure.
+          showToast('Lista guardada en este dispositivo; respaldo local pendiente');
+          return false;
+        }
       }
 
       function saveCloudConfig() {
@@ -3225,18 +3269,13 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           idbSet('songs', state.songs);
         }
 
-        if (Array.isArray(dbLists) && dbLists.length > 0) {
-          const mergedLists = new Map(dbLists.map(item => [String(item.id), item]));
-          (state.lists || []).forEach(item => mergedLists.set(String(item.id), { ...(mergedLists.get(String(item.id)) || {}), ...item }));
-          state.lists = Array.from(mergedLists.values()).map(item => ({
-            id: item.id || ('list-' + Date.now() + Math.random()),
-            name: item.name || 'Listado',
-            date: item.date || '',
-            songIds: Array.isArray(item.songIds) ? item.songIds.filter(id => state.songs.some(x => x.id === id)) : []
-          }));
-          changed = true;
-        } else {
-          idbSet('lists', state.lists);
+        // localStorage is authoritative for lists because it records explicit
+        // deletions as []. Never merge stale IndexedDB rows back into the UI.
+        // Reconcile IndexedDB to the current list state on every hydration.
+        if (Array.isArray(dbLists) && JSON.stringify(dbLists) !== JSON.stringify(state.lists)) {
+          await idbSet('lists', state.lists);
+        } else if (!Array.isArray(dbLists)) {
+          await idbSet('lists', state.lists);
         }
 
         if (changed) {
@@ -4578,12 +4617,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           };
         });
 
-        document.getElementById('song-form').onsubmit = e => {
+        document.getElementById('song-form').onsubmit = async e => {
           e.preventDefault();
           if (!requireAdmin()) return;
           const title = document.getElementById('sf-title').value.trim();
-          if (!title) return;
-
+          if (!title) { document.getElementById('sf-title').focus(); return; }
           const data = {
             title,
             moment: document.getElementById('sf-moment').value,
@@ -4596,45 +4634,48 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             audioName: song ? (song.audioName || '') : '',
             published: document.getElementById('sf-published').checked
           };
-
           let targetSong;
-          if (isEdit) {
-            Object.assign(song, data);
-            targetSong = song;
-            showToast('Canto actualizado');
-          } else {
-            targetSong = { id: 'song-' + Date.now(), ...data };
+          if (isEdit) { Object.assign(song, data); targetSong = song; }
+          else {
+            targetSong = { id: 'song-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), ...data };
             state.songs.unshift(targetSong);
-            if (!state.visorSongId) state.visorSongId = targetSong.id;
-            showToast('Nuevo canto guardado');
           }
-
           if (pendingLocalFile) {
-            const objUrl = URL.createObjectURL(pendingLocalFile);
-            state.sessionAudioMap[targetSong.id] = objUrl;
             targetSong.audioName = pendingLocalFile.name;
-            if (pendingLocalFile.size <= 8388608) {
-              const reader = new FileReader();
-              reader.onload = () => {
-                targetSong.audioUrl = reader.result;
-                saveSongs();
-                if (state.activeTab === 'visor') renderVisor();
-              };
-              reader.readAsDataURL(pendingLocalFile);
-            }
+            state.sessionAudioMap[targetSong.id] = URL.createObjectURL(pendingLocalFile);
           }
-
-          // Persist and refresh the visible cantoral immediately; cloud sync runs in background.
-          saveSongs();
+          if (!state.visorSongId || !isEdit) state.visorSongId = targetSong.id;
+          // Refresh UI immediately so the saved title is visible without reopening the form.
           closeModal();
           renderSongsList();
           renderListasView();
           updateListasNavBadge();
           if (state.activeTab === 'visor') renderVisor();
-          idbSet('songs', state.songs);
-          saveSongToSupabase(targetSong)
-            .then(() => showToast(targetSong.published ? 'Canto guardado y publicado' : 'Canto guardado'))
-            .catch(err => showToast('Canto guardado localmente; sincronización pendiente: ' + err.message));
+          showToast(isEdit ? 'Canto actualizado' : 'Canto agregado al cantoral');
+          try {
+            // IndexedDB is the durable local store; wait for its write before cloud sync.
+            await idbSet('songs', state.songs);
+            try { localStorage.setItem(STORAGE.SONGS, JSON.stringify(stripHeavyAudioForLocalStorage(state.songs))); } catch (_) {}
+            if (pendingLocalFile && pendingLocalFile.size <= 20 * 1024 * 1024) {
+              const reader = new FileReader();
+              reader.onload = async () => {
+                targetSong.audioUrl = String(reader.result || '');
+                await idbSet('songs', state.songs);
+                try { localStorage.setItem(STORAGE.SONGS, JSON.stringify(stripHeavyAudioForLocalStorage(state.songs))); } catch (_) {}
+                if (state.activeTab === 'visor') renderVisor();
+              };
+              reader.onerror = () => showToast('El canto se guardó, pero no se pudo leer el audio local');
+              reader.readAsDataURL(pendingLocalFile);
+            } else if (pendingLocalFile) {
+              showToast('Audio mayor a 20 MB: se conserva solo durante esta sesión');
+            }
+            saveSongToSupabase(targetSong)
+              .then(() => showToast(targetSong.published ? 'Canto guardado y publicado' : 'Canto sincronizado'))
+              .catch(err => showToast('Canto guardado en este dispositivo; nube pendiente: ' + err.message));
+          } catch (err) {
+            console.error('Persistencia del canto:', err);
+            showToast('El canto aparece en pantalla, pero no se confirmó el guardado local');
+          }
         };
       }
 
@@ -6017,118 +6058,119 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         state.tunerRaf = requestAnimationFrame(tunerLoop);
       }
 
-      // Tonos de referencia: iniciar el oscilador dentro del gesto del usuario (Android/Chrome).
-      let refAudioContext = null, refAudioOscillator = null, refAudioGain = null, refAudioKey = null;
+      // TONOS DE REFERENCIA 2.0 — módulo autónomo reconstruido.
+      // Cada botón ejecuta directamente playReferenceTone(this) desde el gesto táctil.
+      let referenceTonePlayer = null;
+      let referenceToneUrl = null;
+      let referenceToneActiveKey = null;
 
-      function getReferenceAudioContext() {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) throw new Error('Web Audio no está disponible en este navegador');
-        if (!refAudioContext || refAudioContext.state === 'closed') refAudioContext = new AC();
-        return refAudioContext;
+      function makeReferenceToneWav(frequency) {
+        const sampleRate = 44100, seconds = 3, samples = sampleRate * seconds;
+        const buffer = new ArrayBuffer(44 + samples * 2);
+        const view = new DataView(buffer);
+        const write = (offset, text) => { for (let i=0;i<text.length;i++) view.setUint8(offset+i,text.charCodeAt(i)); };
+        write(0,'RIFF'); view.setUint32(4,36+samples*2,true); write(8,'WAVE');
+        write(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
+        view.setUint16(22,1,true); view.setUint32(24,sampleRate,true);
+        view.setUint32(28,sampleRate*2,true); view.setUint16(32,2,true);
+        view.setUint16(34,16,true); write(36,'data'); view.setUint32(40,samples*2,true);
+        for (let i=0;i<samples;i++) {
+          const t=i/sampleRate;
+          const fade=Math.min(1,t/0.04,(seconds-t)/0.04);
+          const value=Math.sin(2*Math.PI*frequency*t)*0.24*Math.max(0,fade);
+          view.setInt16(44+i*2,Math.max(-32768,Math.min(32767,Math.round(value*32767))),true);
+        }
+        return new Blob([buffer],{type:'audio/wav'});
       }
 
-      function updateReferenceToneUI(key, label, hz) {
-        document.querySelectorAll('#panel-tonos .tone-btn').forEach(btn => {
-          const active = !!key && btn.dataset.refKey === key;
-          btn.classList.toggle('playing', active);
-          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      function referenceToneStatus(message) {
+        const el=document.getElementById('ref-audio-status');
+        if (el) el.textContent=message;
+      }
+
+      function clearReferenceToneButtons() {
+        document.querySelectorAll('#panel-tonos .tone-btn').forEach(btn=>{
+          btn.classList.remove('playing');
+          btn.setAttribute('aria-pressed','false');
         });
-        const stop = document.getElementById('btn-ref-stop');
-        const status = document.getElementById('ref-audio-status');
-        if (stop) stop.classList.toggle('hidden', !key);
-        if (status) status.textContent = key ? `▶ ${label} · ${Number(hz).toFixed(2)} Hz · Sonando` : 'Audio detenido';
+        const stop=document.getElementById('btn-ref-stop');
+        if (stop) stop.classList.add('hidden');
       }
 
-      function stopReferenceTone() {
-        const osc = refAudioOscillator, gain = refAudioGain;
-        refAudioOscillator = null; refAudioGain = null; refAudioKey = null;
-        if (osc) {
-          try {
-            const now = refAudioContext.currentTime;
-            if (gain) {
-              gain.gain.cancelScheduledValues(now);
-              gain.gain.setTargetAtTime(0.0001, now, 0.012);
-            }
-            osc.stop(now + 0.055);
-          } catch (_) { try { osc.stop(); } catch (_) {} }
-          setTimeout(() => { try { osc.disconnect(); } catch (_) {} try { gain && gain.disconnect(); } catch (_) {} }, 100);
+      function stopRefTone() {
+        const oldPlayer=referenceTonePlayer;
+        referenceTonePlayer=null;
+        referenceToneActiveKey=null;
+        if (oldPlayer) {
+          try { oldPlayer.pause(); oldPlayer.currentTime=0; oldPlayer.removeAttribute('src'); oldPlayer.load(); } catch(e) {}
         }
-        updateReferenceToneUI(null);
+        if (referenceToneUrl) {
+          try { URL.revokeObjectURL(referenceToneUrl); } catch(e) {}
+          referenceToneUrl=null;
+        }
+        clearReferenceToneButtons();
+        referenceToneStatus('Tono detenido. Oprime otra nota para escucharla.');
       }
 
-      function startReferenceTone(frequency, key, label) {
-        const hz = Number(frequency);
-        if (!Number.isFinite(hz) || hz <= 0) return;
-        stopReferenceTone();
+      // Función global para que el onclick directo funcione aun cuando el panel se mueva.
+      window.playReferenceTone = function(button) {
         try {
-          const ctx = getReferenceAudioContext();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          const now = ctx.currentTime;
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(hz, now);
-          gain.gain.setValueAtTime(0.0001, now);
-          gain.gain.setTargetAtTime(0.18, now + 0.01, 0.025);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          // Start before awaiting resume: start() and resume() are both invoked in the user gesture.
-          osc.start(now);
-          refAudioOscillator = osc;
-          refAudioGain = gain;
-          refAudioKey = key;
-          updateReferenceToneUI(key, label, hz);
-          if (ctx.state !== 'running') {
-            const resumePromise = ctx.resume();
-            if (resumePromise && typeof resumePromise.catch === 'function') {
-              resumePromise.catch(err => {
-                stopReferenceTone();
-                const status = document.getElementById('ref-audio-status');
-                if (status) status.textContent = 'El navegador bloqueó el audio. Revisa el volumen multimedia.';
-                console.warn('AudioContext resume:', err);
-              });
-            }
+          const frequency=Number(button && button.dataset ? button.dataset.refFreq : 0);
+          const key=button && button.dataset ? button.dataset.refKey : '';
+          const label=button && button.querySelector('.t-main') ? button.querySelector('.t-main').textContent.trim() : 'Nota';
+          if (!Number.isFinite(frequency) || frequency<=0) {
+            referenceToneStatus('No se pudo leer la frecuencia de esta nota.'); return;
           }
-        } catch (err) {
-          updateReferenceToneUI(null);
-          const status = document.getElementById('ref-audio-status');
-          if (status) status.textContent = 'No se pudo iniciar el tono: ' + (err.message || 'error de audio');
-          console.warn('Tono de referencia:', err);
+          if (referenceToneActiveKey===key && referenceTonePlayer && !referenceTonePlayer.paused) {
+            stopRefTone(); return;
+          }
+          // Detener/revocar el tono previo sin cambiar el gesto que inicia el nuevo audio.
+          const old=referenceTonePlayer;
+          referenceTonePlayer=null;
+          if (old) { try { old.pause(); old.removeAttribute('src'); old.load(); } catch(e) {} }
+          if (referenceToneUrl) { try { URL.revokeObjectURL(referenceToneUrl); } catch(e) {} referenceToneUrl=null; }
+          clearReferenceToneButtons();
+          referenceToneStatus('Preparando '+label+' · '+frequency.toFixed(2)+' Hz…');
+          const blob=makeReferenceToneWav(frequency);
+          referenceToneUrl=URL.createObjectURL(blob);
+          const player=new Audio();
+          referenceTonePlayer=player;
+          player.src=referenceToneUrl;
+          player.loop=true;
+          player.preload='auto';
+          player.volume=0.85;
+          player.addEventListener('playing',()=>{
+            if (referenceTonePlayer!==player) return;
+            referenceToneActiveKey=key;
+            button.classList.add('playing');
+            button.setAttribute('aria-pressed','true');
+            const stop=document.getElementById('btn-ref-stop');
+            if (stop) stop.classList.remove('hidden');
+            referenceToneStatus('Reproduciendo '+label+' · '+frequency.toFixed(2)+' Hz');
+          });
+          player.addEventListener('error',()=>{
+            if (referenceTonePlayer!==player) return;
+            const code=player.error ? player.error.code : 'sin código';
+            clearReferenceToneButtons();
+            referenceToneStatus('Error al reproducir el WAV (código '+code+').');
+          },{once:true});
+          // IMPORTANTE: play() se invoca directamente dentro del clic, sin await previo.
+          const result=player.play();
+          if (result && typeof result.catch==='function') result.catch(error=>{
+            if (referenceTonePlayer!==player) return;
+            clearReferenceToneButtons();
+            referenceToneStatus('El navegador rechazó el audio: '+(error.name||'Error')+'.');
+          });
+        } catch(error) {
+          clearReferenceToneButtons();
+          referenceToneStatus('No se pudo iniciar el tono: '+(error.message||error));
         }
-      }
-
-      function testReferenceAudio() { startReferenceTone(440, 'test-a440', 'La de prueba'); }
+      };
 
       function renderReferenceToneButtons() {
-        const panel = document.getElementById('panel-tonos');
-        if (!panel || panel.dataset.refBound === '1') return;
-        panel.dataset.refBound = '1';
-
-        // Delegated handler also covers buttons inside the floating tool window.
-        panel.addEventListener('pointerdown', event => {
-          const btn = event.target.closest('.tone-btn[data-ref-freq]');
-          if (!btn || !panel.contains(btn)) return;
-          event.preventDefault();
-          const hz = Number(btn.dataset.refFreq);
-          const key = btn.dataset.refKey || ('note-' + hz);
-          const label = btn.querySelector('.t-main')?.textContent?.trim() || key;
-          if (refAudioKey === key) stopReferenceTone();
-          else startReferenceTone(hz, key, label);
-        }, { passive: false });
-
-        panel.addEventListener('click', event => {
-          const stop = event.target.closest('#btn-ref-stop');
-          if (stop) { event.preventDefault(); stopReferenceTone(); return; }
-          const test = event.target.closest('#btn-ref-test');
-          if (test) { event.preventDefault(); testReferenceAudio(); }
-        });
-
-        const stop = document.getElementById('btn-ref-stop');
-        if (stop) stop.classList.add('hidden');
-        panel.querySelectorAll('.tone-btn').forEach(btn => btn.setAttribute('aria-pressed', 'false'));
+        clearReferenceToneButtons();
+        referenceToneStatus('Reproductor independiente listo. Oprime una nota para escucharla.');
       }
-
-      function stopRefTone() { stopReferenceTone(); }
-
 
       // Persistencia de grabaciones en IndexedDB (no guardar URLs temporales)
       const REC_DB_NAME = 'CoroLiturgicoStudioAudio';
@@ -6473,13 +6515,16 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('btn-delete-list').onclick = () => {
           const active = getActiveList();
           if (!active) return;
-          confirmDialog('Eliminar Listado', `¿Deseas eliminar el listado "${active.name}"?`, 'Eliminar', () => {
-            state.lists = state.lists.filter(l => l.id !== active.id);
+          confirmDialog('Eliminar Listado', `¿Deseas eliminar el listado "${active.name}"?`, 'Eliminar', async () => {
+            const deletedId = active.id;
+            state.lists = state.lists.filter(l => l.id !== deletedId);
             state.activeListId = state.lists[0] ? state.lists[0].id : null;
-            if (state.visorListId === active.id) state.visorListId = null;
-            saveLists();
+            if (state.visorListId === deletedId) state.visorListId = null;
+            // Update the interface immediately, then confirm both local stores.
             renderListasView();
-            showToast('Listado eliminado');
+            const saved = await saveLists();
+            renderListasView();
+            showToast(saved ? 'Listado eliminado definitivamente' : 'Listado eliminado; quedó guardado en el almacenamiento del navegador');
           });
         };
         document.getElementById('btn-list-select-songs').onclick = openSongPickerModal;
