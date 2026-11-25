@@ -3801,6 +3801,34 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         };
       }
 
+      // Envía una invitación nueva o un enlace de acceso a una cuenta existente.
+      // La Edge Function decide si debe crear la cuenta o reactivar la autorización.
+      async function sendMemberAccessLink(email) {
+        if (!state.isAdmin || !state.supabaseSession?.access_token) {
+          throw new Error('Sesión de administrador no válida. Cierra sesión e inicia nuevamente.');
+        }
+        const response = await fetch(SUPABASE_URL + '/functions/v1/invite-members', {
+          method: 'POST',
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': 'Bearer ' + state.supabaseSession.access_token
+          },
+          body: JSON.stringify({ email: String(email || '').trim().toLowerCase() })
+        });
+        const raw = await response.text();
+        let result = {};
+        try { result = raw ? JSON.parse(raw) : {}; }
+        catch (_) { result = { error: raw || 'Respuesta vacía del servidor' }; }
+        if (!response.ok || result.error || result.ok === false) {
+          const detail = [result.error, result.detail, result.code].filter(Boolean).join(' | ')
+            || result.message || result.msg || raw || 'Error sin detalle';
+          throw new Error('HTTP ' + response.status + ': ' + detail);
+        }
+        return result;
+      }
+
       async function loadAuthorizedMembers() {
         const host = document.getElementById('authorized-members-list');
         const status = document.getElementById('authorized-members-status');
@@ -3821,9 +3849,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
                 <div style="font-size:.7rem; color:var(--text-muted);">${esc(row.user_id || '')}</div>
                 <div style="font-size:.75rem; font-weight:700; color:${row.active ? 'var(--success)' : 'var(--danger)'};">${row.active ? '● Acceso activo' : '● Acceso desactivado'}</div>
               </div>
-              <button type="button" class="btn ${row.active ? 'btn-danger' : 'btn-soft'} btn-sm" data-member-id="${esc(row.user_id)}" data-member-active="${row.active ? 'true' : 'false'}" style="flex-shrink:0;">
-                ${row.active ? 'Desactivar' : 'Activar'}
-              </button>
+              <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+                <button type="button" class="btn ${row.active ? 'btn-danger' : 'btn-soft'} btn-sm" data-member-id="${esc(row.user_id)}" data-member-active="${row.active ? 'true' : 'false'}">
+                  ${row.active ? 'Desactivar' : 'Activar'}
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" data-member-resend="${esc(row.email || '')}">
+                  Reenviar acceso
+                </button>
+              </div>
             </div>`).join('');
           host.querySelectorAll('[data-member-id]').forEach(button => {
             button.onclick = async () => {
@@ -3832,16 +3865,40 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               const nextActive = button.dataset.memberActive !== 'true';
               button.disabled = true;
               try {
-                await supabaseRequest('/rest/v1/authorized_users?user_id=eq.' + encodeURIComponent(id), {
+                const updated = await supabaseRequest('/rest/v1/authorized_users?user_id=eq.' + encodeURIComponent(id), {
                   method: 'PATCH',
-                  headers: { 'Prefer': 'return=minimal' },
+                  headers: { 'Prefer': 'return=representation' },
                   body: JSON.stringify({ active: nextActive })
                 }, true);
+                if (!Array.isArray(updated) || updated.length !== 1) {
+                  throw new Error('Supabase no confirmó la actualización. Verifica permisos y que el usuario siga registrado.');
+                }
                 showToast(nextActive ? 'Acceso del integrante activado' : 'Acceso del integrante desactivado');
                 await loadAuthorizedMembers();
               } catch (error) {
                 button.disabled = false;
                 showToast('No se pudo actualizar: ' + (error.message || 'error de permisos'));
+              }
+            };
+          });
+          host.querySelectorAll('[data-member-resend]').forEach(button => {
+            button.onclick = async () => {
+              if (!state.isAdmin) return;
+              const email = button.dataset.memberResend;
+              if (!email) { showToast('Esta cuenta no tiene un correo registrado.'); return; }
+              button.disabled = true;
+              const originalText = button.textContent;
+              button.textContent = 'Enviando…';
+              try {
+                const result = await sendMemberAccessLink(email);
+                showToast(result.reactivated
+                  ? 'Cuenta reactivada y enlace de acceso enviado.'
+                  : 'Enlace de acceso enviado.');
+                await loadAuthorizedMembers();
+              } catch (error) {
+                showToast('No se pudo reenviar el acceso: ' + (error.message || 'error de conexión'));
+                button.disabled = false;
+                button.textContent = originalText;
               }
             };
           });
@@ -3978,40 +4035,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           submit.textContent = 'Enviando…';
           status.textContent = 'Conectando con Supabase…';
           try {
-            const response = await fetch(SUPABASE_URL + '/functions/v1/invite-members', {
-              method: 'POST',
-              mode: 'cors',
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': 'Bearer ' + state.supabaseSession.access_token
-              },
-              body: JSON.stringify({ email })
-            });
+            const result = await sendMemberAccessLink(email);
 
-            const raw = await response.text();
-            let result = {};
-            try { result = raw ? JSON.parse(raw) : {}; }
-            catch (_) { result = { error: raw || 'Respuesta vacía del servidor' }; }
-
-            if (!response.ok || result.error) {
-              const parts = [];
-              if (result.error) parts.push(String(result.error));
-              if (result.detail) parts.push('Detalle: ' + String(result.detail));
-              if (result.code) parts.push('Código: ' + String(result.code));
-              if (result.user_id) parts.push('ID de sesión: ' + String(result.user_id));
-              if (result.email) parts.push('Correo de sesión: ' + String(result.email));
-              const detail = parts.length
-                ? parts.join(' | ')
-                : (result.message || result.msg || raw || 'Error sin detalle');
-              throw new Error('HTTP ' + response.status + ': ' + detail);
-            }
-
-            status.textContent = 'Respuesta del servidor: ' +
-              (result.message || result.msg || 'Solicitud aceptada') +
-              '. Revisa el correo de ' + email + ' y la carpeta de spam.';
+            status.textContent = (result.message || result.msg || 'Solicitud completada') +
+              ' Revisa el correo de ' + email + ' y la carpeta de spam.';
             emailInput.value = '';
-            showToast('Supabase aceptó la solicitud de invitación.');
+            showToast(result.reactivated
+              ? 'Cuenta existente reactivada; enlace de acceso enviado.'
+              : 'Invitación enviada correctamente.');
             await loadAuthorizedMembers();
           } catch (error) {
             console.error('Error al invitar integrante:', error);
