@@ -2335,7 +2335,7 @@ html{background:var(--bg)} body{background:radial-gradient(ellipse at 50% -20%,#
 
       <!-- Interactive Chord Hint -->
       <div id="visor-chord-hint" style="font-size:0.75rem; color:var(--text-muted); padding:0 4px;">
-        💡 Toca cualquier acorde para ver su diagrama en guitarra y teclado, y escucharlo.
+        💡 Toca cualquier acorde para consultar su diagrama en guitarra y teclado.
       </div>
 
       <!-- Song Sheet -->
@@ -3212,8 +3212,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const dbLists = await idbGet('lists');
         let changed = false;
 
+        // localStorage is the immediate source of truth at startup. Merge IndexedDB
+        // records without deleting items already present in the current session.
         if (Array.isArray(dbSongs) && dbSongs.length > 0) {
-          state.songs = dbSongs.map(s => ({
+          const mergedSongs = new Map((dbSongs || []).map(song => [String(song.id), song]));
+          (state.songs || []).forEach(song => mergedSongs.set(String(song.id), { ...(mergedSongs.get(String(song.id)) || {}), ...song }));
+          state.songs = Array.from(mergedSongs.values()).map(s => ({
             season: 'Ordinario', notes: '', audioUrl: '', audioName: '', ...s
           }));
           changed = true;
@@ -3222,7 +3226,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
 
         if (Array.isArray(dbLists) && dbLists.length > 0) {
-          state.lists = dbLists.map(item => ({
+          const mergedLists = new Map(dbLists.map(item => [String(item.id), item]));
+          (state.lists || []).forEach(item => mergedLists.set(String(item.id), { ...(mergedLists.get(String(item.id)) || {}), ...item }));
+          state.lists = Array.from(mergedLists.values()).map(item => ({
             id: item.id || ('list-' + Date.now() + Math.random()),
             name: item.name || 'Listado',
             date: item.date || '',
@@ -4348,7 +4354,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
                   <span class="badge-neutral">${esc(s.season || 'Ordinario')}</span>
                   <span>Tono <strong>${esc(s.key)}</strong></span>
                   ${s.bpm ? `<span>• ${s.bpm} BPM</span>` : ''}
-                  ${hasAudio ? `<span>• 🎧</span>` : ''}
+                  
                 </div>
                 <div class="song-card-title">${esc(s.title)}</div>
               </button>
@@ -4618,14 +4624,17 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             }
           }
 
+          // Persist and refresh the visible cantoral immediately; cloud sync runs in background.
           saveSongs();
-          saveSongToSupabase(targetSong).then(() => showToast(targetSong.published ? 'Canto guardado y publicado' : 'Borrador guardado en la nube'))
-            .catch(err => showToast('Guardado local; error en nube: ' + err.message));
           closeModal();
           renderSongsList();
           renderListasView();
           updateListasNavBadge();
           if (state.activeTab === 'visor') renderVisor();
+          idbSet('songs', state.songs);
+          saveSongToSupabase(targetSong)
+            .then(() => showToast(targetSong.published ? 'Canto guardado y publicado' : 'Canto guardado'))
+            .catch(err => showToast('Canto guardado localmente; sincronización pendiente: ' + err.message));
         };
       }
 
@@ -4878,33 +4887,29 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const nameInp = document.getElementById('lm-name');
         setTimeout(() => nameInp.focus(), 60);
 
-        document.getElementById('list-meta-form').onsubmit = e => {
+        document.getElementById('list-meta-form').onsubmit = async e => {
           e.preventDefault();
           const name = nameInp.value.trim();
           const date = document.getElementById('lm-date').value.trim();
-          if (!name) return;
+          if (!name) { nameInp.focus(); return; }
 
           if (isEdit) {
             listToEdit.name = name;
             listToEdit.date = date;
-            saveLists();
-            closeModal();
-            renderListasView();
-            showToast('Listado actualizado');
           } else {
-            const newList = {
-              id: 'list-' + Date.now(),
-              name,
-              date,
-              songIds: []
-            };
+            const newList = { id: 'list-' + Date.now() + '-' + Math.random().toString(36).slice(2,7), name, date, songIds: [] };
             state.lists.push(newList);
             state.activeListId = newList.id;
-            saveLists();
-            closeModal();
-            renderListasView();
-            showToast(`Listado "${name}" creado`);
           }
+          // Close first so the workspace is immediately free; then render and persist.
+          closeModal();
+          renderListasView();
+          updateListasNavBadge();
+          try {
+            localStorage.setItem(STORAGE.LISTS, JSON.stringify(state.lists));
+            await idbSet('lists', state.lists);
+          } catch (err) { console.warn('Guardado de listas:', err); }
+          showToast(isEdit ? 'Listado actualizado' : `Listado "${name}" creado`);
         };
       }
 
@@ -5374,7 +5379,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           </div>
 
           <button type="button" id="cd-play" class="btn btn-primary btn-sm" style="align-self:flex-start;">
-            🔊 Escuchar acorde
+            Ver diagrama de acorde
           </button>
 
           <div class="diagram-box">
@@ -6012,47 +6017,41 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         state.tunerRaf = requestAnimationFrame(tunerLoop);
       }
 
-      // Tonos de referencia: reproducción continua con activación directa desde el toque.
+      // Tonos de referencia: iniciar el oscilador dentro del gesto del usuario (Android/Chrome).
       let refAudioContext = null, refAudioOscillator = null, refAudioGain = null, refAudioKey = null;
-      let refAudioGeneration = 0;
 
       function getReferenceAudioContext() {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) throw new Error('Este navegador no admite Web Audio');
-        if (!refAudioContext || refAudioContext.state === 'closed') refAudioContext = new AudioCtx();
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) throw new Error('Web Audio no está disponible en este navegador');
+        if (!refAudioContext || refAudioContext.state === 'closed') refAudioContext = new AC();
         return refAudioContext;
       }
 
-      function updateReferenceToneUI(key, label, frequency) {
+      function updateReferenceToneUI(key, label, hz) {
         document.querySelectorAll('#panel-tonos .tone-btn').forEach(btn => {
           const active = !!key && btn.dataset.refKey === key;
           btn.classList.toggle('playing', active);
           btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
-        const stopBtn = document.getElementById('btn-ref-stop');
+        const stop = document.getElementById('btn-ref-stop');
         const status = document.getElementById('ref-audio-status');
-        if (stopBtn) stopBtn.classList.toggle('hidden', !key);
-        if (status) status.textContent = key
-          ? `▶ ${label} · ${Number(frequency).toFixed(2)} Hz · Reproduciendo`
-          : 'Audio detenido';
+        if (stop) stop.classList.toggle('hidden', !key);
+        if (status) status.textContent = key ? `▶ ${label} · ${Number(hz).toFixed(2)} Hz · Sonando` : 'Audio detenido';
       }
 
       function stopReferenceTone() {
-        ++refAudioGeneration;
         const osc = refAudioOscillator, gain = refAudioGain;
         refAudioOscillator = null; refAudioGain = null; refAudioKey = null;
         if (osc) {
           try {
-            const now = refAudioContext ? refAudioContext.currentTime : 0;
-            if (gain && refAudioContext) {
+            const now = refAudioContext.currentTime;
+            if (gain) {
               gain.gain.cancelScheduledValues(now);
-              gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value || 0.0001), now);
-              gain.gain.linearRampToValueAtTime(0.0001, now + 0.025);
-              osc.stop(now + 0.03);
-            } else osc.stop();
+              gain.gain.setTargetAtTime(0.0001, now, 0.012);
+            }
+            osc.stop(now + 0.055);
           } catch (_) { try { osc.stop(); } catch (_) {} }
-          try { osc.disconnect(); } catch (_) {}
-          try { if (gain) gain.disconnect(); } catch (_) {}
+          setTimeout(() => { try { osc.disconnect(); } catch (_) {} try { gain && gain.disconnect(); } catch (_) {} }, 100);
         }
         updateReferenceToneUI(null);
       }
@@ -6061,87 +6060,71 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const hz = Number(frequency);
         if (!Number.isFinite(hz) || hz <= 0) return;
         stopReferenceTone();
-        const generation = refAudioGeneration;
         try {
           const ctx = getReferenceAudioContext();
-          const resume = (ctx.state === 'suspended' || ctx.state === 'interrupted')
-            ? ctx.resume()
-            : Promise.resolve();
-          resume.then(() => {
-            if (generation !== refAudioGeneration) return;
-            if (ctx.state !== 'running') throw new Error('El navegador no activó el audio');
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            const now = ctx.currentTime;
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(hz, now);
-            gain.gain.setValueAtTime(0.0001, now);
-            gain.gain.exponentialRampToValueAtTime(0.22, now + 0.045);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(now);
-            refAudioOscillator = osc;
-            refAudioGain = gain;
-            refAudioKey = key;
-            updateReferenceToneUI(key, label, hz);
-          }).catch(error => {
-            updateReferenceToneUI(null);
-            const status = document.getElementById('ref-audio-status');
-            if (status) status.textContent = 'Audio bloqueado: revisa el volumen multimedia';
-            console.warn('Tonos de referencia:', error);
-          });
-        } catch (error) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const now = ctx.currentTime;
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(hz, now);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.setTargetAtTime(0.18, now + 0.01, 0.025);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          // Start before awaiting resume: start() and resume() are both invoked in the user gesture.
+          osc.start(now);
+          refAudioOscillator = osc;
+          refAudioGain = gain;
+          refAudioKey = key;
+          updateReferenceToneUI(key, label, hz);
+          if (ctx.state !== 'running') {
+            const resumePromise = ctx.resume();
+            if (resumePromise && typeof resumePromise.catch === 'function') {
+              resumePromise.catch(err => {
+                stopReferenceTone();
+                const status = document.getElementById('ref-audio-status');
+                if (status) status.textContent = 'El navegador bloqueó el audio. Revisa el volumen multimedia.';
+                console.warn('AudioContext resume:', err);
+              });
+            }
+          }
+        } catch (err) {
+          updateReferenceToneUI(null);
           const status = document.getElementById('ref-audio-status');
-          if (status) status.textContent = 'No se pudo iniciar el audio: ' + (error.message || 'error');
-          console.warn('Tonos de referencia:', error);
+          if (status) status.textContent = 'No se pudo iniciar el tono: ' + (err.message || 'error de audio');
+          console.warn('Tono de referencia:', err);
         }
       }
 
-      function testReferenceAudio() {
-        startReferenceTone(440, 'test-a440', 'La de prueba');
-      }
+      function testReferenceAudio() { startReferenceTone(440, 'test-a440', 'La de prueba'); }
 
       function renderReferenceToneButtons() {
         const panel = document.getElementById('panel-tonos');
-        if (!panel) return;
-        panel.querySelectorAll('.tone-btn[data-ref-freq]').forEach(btn => {
-          if (btn.dataset.refDirectBound === '1') return;
-          btn.dataset.refDirectBound = '1';
-          btn.type = 'button';
-          btn.style.touchAction = 'manipulation';
-          btn.setAttribute('aria-pressed', 'false');
-          const playNote = event => {
-            event.preventDefault();
-            event.stopPropagation();
-            const hz = Number(btn.dataset.refFreq);
-            const key = btn.dataset.refKey || ('note-' + hz);
-            const label = btn.querySelector('.t-main')?.textContent?.trim() || key;
-            if (refAudioKey === key) stopReferenceTone();
-            else startReferenceTone(hz, key, label);
-          };
-          btn.addEventListener('pointerup', playNote, { passive: false });
-          btn.addEventListener('click', event => {
-            if (event.detail === 0) playNote(event);
-          });
+        if (!panel || panel.dataset.refBound === '1') return;
+        panel.dataset.refBound = '1';
+
+        // Delegated handler also covers buttons inside the floating tool window.
+        panel.addEventListener('pointerdown', event => {
+          const btn = event.target.closest('.tone-btn[data-ref-freq]');
+          if (!btn || !panel.contains(btn)) return;
+          event.preventDefault();
+          const hz = Number(btn.dataset.refFreq);
+          const key = btn.dataset.refKey || ('note-' + hz);
+          const label = btn.querySelector('.t-main')?.textContent?.trim() || key;
+          if (refAudioKey === key) stopReferenceTone();
+          else startReferenceTone(hz, key, label);
+        }, { passive: false });
+
+        panel.addEventListener('click', event => {
+          const stop = event.target.closest('#btn-ref-stop');
+          if (stop) { event.preventDefault(); stopReferenceTone(); return; }
+          const test = event.target.closest('#btn-ref-test');
+          if (test) { event.preventDefault(); testReferenceAudio(); }
         });
 
-        const stopBtn = document.getElementById('btn-ref-stop');
-        if (stopBtn && stopBtn.dataset.refDirectBound !== '1') {
-          stopBtn.dataset.refDirectBound = '1';
-          stopBtn.type = 'button';
-          stopBtn.onclick = event => {
-            event.preventDefault(); event.stopPropagation(); stopReferenceTone();
-          };
-        }
-        const testBtn = document.getElementById('btn-ref-test');
-        if (testBtn && testBtn.dataset.refDirectBound !== '1') {
-          testBtn.dataset.refDirectBound = '1';
-          testBtn.type = 'button';
-          testBtn.onclick = event => {
-            event.preventDefault(); event.stopPropagation(); testReferenceAudio();
-          };
-        }
-        updateReferenceToneUI(null);
+        const stop = document.getElementById('btn-ref-stop');
+        if (stop) stop.classList.add('hidden');
+        panel.querySelectorAll('.tone-btn').forEach(btn => btn.setAttribute('aria-pressed', 'false'));
       }
 
       function stopRefTone() { stopReferenceTone(); }
@@ -6791,9 +6774,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         loadStorage();
         const atrilScrollArea = document.getElementById('atril-scroll-area');
         if (atrilScrollArea) atrilScrollArea.addEventListener('scroll', updateAtrilProgress, { passive: true });
-        // No mostrar copias locales del repertorio antes de validar el acceso privado.
-        state.songs = [];
-        state.visorSongId = null;
+        // Mantener repertorio local mientras se completa la hidratación del almacenamiento.
         applyTheme(state.theme.primary, state.theme.dark, false);
         populateCantoralFilters();
         bindEvents();
