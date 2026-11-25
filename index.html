@@ -2592,19 +2592,26 @@ body.home-active #view-inicio .home-brand-band span {
       #global-home-return { width: 44px; height: 44px; right: 12px; bottom: max(14px, env(safe-area-inset-bottom)); }
     }
 
-/* Editor de cantos: espacio de trabajo de pantalla completa */
+/* Editor de cantos: pantalla completa con menús desplegables minimalistas */
 #modal-backdrop.editor-song-backdrop{position:fixed;inset:0!important;padding:0!important;align-items:stretch!important;justify-content:stretch!important;z-index:1200!important;background:rgba(3,8,18,.96)!important;backdrop-filter:blur(8px)}
-#modal-card.editor-song-workspace{width:100%!important;height:100dvh!important;max-width:none!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important;overflow:auto!important;padding:18px 205px!important;background:linear-gradient(145deg,#10233d,#091426 65%,#142b47)!important;color:#fffaf0!important;box-shadow:none!important;position:relative}
-#modal-card.editor-song-workspace #song-form{max-width:1050px;margin:0 auto;padding:18px;border:1px solid rgba(201,164,95,.4);border-radius:16px;background:rgba(255,250,240,.97);color:#17253a;box-shadow:0 16px 45px rgba(0,0,0,.28)}
-#modal-card.editor-song-workspace .chord-quick-bar{position:fixed;left:14px;top:82px;bottom:18px;width:174px;overflow-y:auto;display:flex;align-content:flex-start;align-items:flex-start;flex-wrap:wrap;gap:7px;padding:12px;border:1px solid rgba(201,164,95,.75);border-radius:14px;background:linear-gradient(160deg,#1c3454,#091426);box-shadow:0 10px 30px rgba(0,0,0,.35)}
-#modal-card.editor-song-workspace .chord-quick-bar:before{content:'PALETA DE ACORDES';flex:0 0 100%;color:#e7c78b;font-size:10px;font-weight:850;letter-spacing:1.4px;margin-bottom:5px}
-#modal-card.editor-song-workspace .chord-chip{min-width:43px;background:#f4efdf;color:#10233d;border:1px solid #c9a45f;font-weight:800}
+#modal-card.editor-song-workspace{width:100%!important;height:100dvh!important;max-width:none!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important;overflow:auto!important;padding:16px 18px 24px!important;background:linear-gradient(145deg,#10233d,#091426 65%,#142b47)!important;color:#fffaf0!important;box-shadow:none!important;position:relative}
+#modal-card.editor-song-workspace #song-form{max-width:1120px;margin:0 auto;padding:16px;border:1px solid rgba(201,164,95,.35);border-radius:15px;background:rgba(255,250,240,.98);color:#17253a;box-shadow:0 16px 45px rgba(0,0,0,.24)}
+#modal-card.editor-song-workspace .editor-dropdown-bar{max-width:1120px;margin:0 auto 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#modal-card.editor-song-workspace .editor-dropdown{position:relative;min-width:150px}
+#modal-card.editor-song-workspace .editor-dropdown summary{list-style:none;cursor:pointer;user-select:none;padding:9px 13px;border:1px solid rgba(201,164,95,.65);border-radius:9px;background:rgba(255,250,240,.08);color:#fffaf0;font-size:12px;font-weight:750;letter-spacing:.2px}
+#modal-card.editor-song-workspace .editor-dropdown summary::-webkit-details-marker{display:none}
+#modal-card.editor-song-workspace .editor-dropdown summary:after{content:'⌄';float:right;color:#e7c78b;margin-left:14px}
+#modal-card.editor-song-workspace .editor-dropdown[open] summary{background:rgba(201,164,95,.17);border-color:#d7b979}
+#modal-card.editor-song-workspace .editor-dropdown-panel{position:absolute;z-index:20;top:calc(100% + 6px);left:0;min-width:240px;max-width:min(88vw,520px);max-height:48vh;overflow:auto;padding:10px;border:1px solid rgba(201,164,95,.7);border-radius:11px;background:#10233d;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+#modal-card.editor-song-workspace .chord-quick-bar{position:static;width:100%;max-height:42vh;overflow:auto;display:flex;align-content:flex-start;align-items:center;flex-wrap:wrap;gap:6px;padding:2px;border:0;border-radius:0;background:transparent;box-shadow:none}
+#modal-card.editor-song-workspace .chord-quick-bar:before{display:none}
+#modal-card.editor-song-workspace .chord-chip{min-width:40px;padding:6px 8px;background:#f4efdf;color:#10233d;border:1px solid #c9a45f;font-weight:800}
 #modal-card.editor-song-workspace #sf-lyrics{min-height:48vh;background:#fffdf7;color:#17253a;font-size:1rem;line-height:1.8}
-#modal-card.editor-song-workspace .editor-side-tools{position:fixed;right:14px;top:82px;bottom:18px;width:174px;display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(201,164,95,.75);border-radius:14px;background:linear-gradient(160deg,#1c3454,#091426);box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:auto}
-#modal-card.editor-song-workspace .editor-side-tools strong{color:#e7c78b;font-size:10px;letter-spacing:1.4px;margin-bottom:5px}
-#modal-card.editor-song-workspace .editor-side-tools button{padding:10px 8px;border:1px solid rgba(201,164,95,.4);border-radius:9px;background:rgba(255,250,240,.08);color:#fffaf0;text-align:left;font-size:12px;font-weight:700}
+#modal-card.editor-song-workspace .editor-side-tools{position:static;width:100%;display:flex;flex-direction:column;gap:6px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+#modal-card.editor-song-workspace .editor-side-tools strong{display:none}
+#modal-card.editor-song-workspace .editor-side-tools button{padding:9px 10px;border:1px solid rgba(201,164,95,.35);border-radius:8px;background:rgba(255,250,240,.07);color:#fffaf0;text-align:left;font-size:12px;font-weight:700}
 #modal-card.editor-song-workspace .editor-side-tools button:active{background:rgba(201,164,95,.25)}
-@media(max-width:760px){#modal-card.editor-song-workspace{padding:70px 10px 16px}#modal-card.editor-song-workspace #song-form{padding:12px}#modal-card.editor-song-workspace .chord-quick-bar{top:8px;left:8px;right:8px;bottom:auto;width:auto;max-height:54px;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;align-items:center}#modal-card.editor-song-workspace .chord-quick-bar:before{display:none}#modal-card.editor-song-workspace .editor-side-tools{position:static;width:auto;min-height:0;max-height:none;flex-direction:row;flex-wrap:wrap;margin:8px 0}#modal-card.editor-song-workspace .editor-side-tools strong{flex:0 0 100%}#modal-card.editor-song-workspace #sf-lyrics{min-height:42vh}}
+@media(max-width:760px){#modal-card.editor-song-workspace{padding:64px 8px 14px}#modal-card.editor-song-workspace #song-form{padding:11px}#modal-card.editor-song-workspace .editor-dropdown-bar{gap:6px}#modal-card.editor-song-workspace .editor-dropdown{min-width:0;flex:1}#modal-card.editor-song-workspace .editor-dropdown summary{padding:9px 8px;font-size:11px}#modal-card.editor-song-workspace .editor-dropdown-panel{position:fixed;left:8px;right:8px;top:112px;min-width:0;max-width:none;max-height:55vh}#modal-card.editor-song-workspace #sf-lyrics{min-height:42vh}}
 
 </style>
 
@@ -5351,7 +5358,41 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           <button type="button" data-editor-insert="\n">↵ Separar sección</button>
           <button type="button" id="editor-preview-format">👁 Vista de acordes</button>`;
         songForm.appendChild(sideTools);
-        sideTools.querySelectorAll('[data-editor-insert]').forEach(button => {
+
+        // Agrupa las herramientas en dos menús compactos: acordes y estructura de letra.
+        const chordBar = songForm.querySelector('.chord-quick-bar');
+        const dropdownBar = document.createElement('nav');
+        dropdownBar.className = 'editor-dropdown-bar';
+        dropdownBar.setAttribute('aria-label', 'Menús de edición');
+        dropdownBar.innerHTML = `
+          <details class="editor-dropdown">
+            <summary>♫ Acordes</summary>
+            <div class="editor-dropdown-panel" id="editor-chords-panel"></div>
+          </details>
+          <details class="editor-dropdown">
+            <summary>＋ Insertar sección</summary>
+            <div class="editor-dropdown-panel" id="editor-sections-panel"></div>
+          </details>
+          <details class="editor-dropdown">
+            <summary>◉ Revisión</summary>
+            <div class="editor-dropdown-panel" id="editor-review-panel"></div>
+          </details>`;
+        songForm.insertBefore(dropdownBar, songForm.firstChild);
+        if (chordBar) document.getElementById('editor-chords-panel').appendChild(chordBar);
+        const toolButtons = [...sideTools.querySelectorAll('button')];
+        const sectionsPanel = document.getElementById('editor-sections-panel');
+        const reviewPanel = document.getElementById('editor-review-panel');
+        toolButtons.forEach(button => {
+          if (button.id === 'editor-preview-format') reviewPanel.appendChild(button);
+          else sectionsPanel.appendChild(button);
+        });
+        sideTools.remove();
+        dropdownBar.querySelectorAll('details').forEach(menu => {
+          menu.addEventListener('toggle', () => {
+            if (menu.open) dropdownBar.querySelectorAll('details').forEach(other => { if (other !== menu) other.open = false; });
+          });
+        });
+        dropdownBar.querySelectorAll('[data-editor-insert]').forEach(button => {
           button.addEventListener('click', () => {
             const area = document.getElementById('sf-lyrics');
             if (!area) return;
