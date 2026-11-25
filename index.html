@@ -2613,7 +2613,9 @@ body.home-active #view-inicio .home-brand-band span {
 #modal-card.editor-song-workspace .editor-dropdown summary::-webkit-details-marker{display:none}
 #modal-card.editor-song-workspace .editor-dropdown summary:after{content:'⌄';float:right;color:#e7c78b;margin-left:14px}
 #modal-card.editor-song-workspace .editor-dropdown[open] summary{background:rgba(201,164,95,.17);border-color:#d7b979}
-#modal-card.editor-song-workspace .editor-dropdown-panel{position:absolute;z-index:20;top:calc(100% + 6px);left:0;min-width:240px;max-width:min(88vw,520px);max-height:48vh;overflow:auto;padding:10px;border:1px solid rgba(201,164,95,.7);border-radius:11px;background:#10233d;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+#modal-card.editor-song-workspace .editor-dropdown-panel{position:absolute;z-index:20;top:calc(100% + 6px);left:0;min-width:240px;max-width:min(88vw,520px);max-height:48vh;overflow:auto;padding:10px;border:1px solid rgba(201,164,95,.7);border-radius:11px;background:#fffaf0;color:#17253a;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+#modal-card.editor-song-workspace .editor-dropdown-panel label,#modal-card.editor-song-workspace .editor-dropdown-panel small,#modal-card.editor-song-workspace .editor-dropdown-panel .field-label{color:inherit}
+#modal-card.editor-song-workspace .editor-dropdown-panel input:not([type=color]),#modal-card.editor-song-workspace .editor-dropdown-panel select,#modal-card.editor-song-workspace .editor-dropdown-panel textarea{background:#fffdf7;color:#17253a}
 #modal-card.editor-song-workspace .chord-quick-bar{position:static;width:100%;max-height:42vh;overflow:auto;display:flex;align-content:flex-start;align-items:center;flex-wrap:wrap;gap:6px;padding:2px;border:0;border-radius:0;background:transparent;box-shadow:none}
 #modal-card.editor-song-workspace .chord-quick-bar:before{display:none}
 #modal-card.editor-song-workspace .chord-chip{min-width:40px;padding:6px 8px;background:#f4efdf;color:#10233d;border:1px solid #c9a45f;font-weight:800}
@@ -5447,6 +5449,23 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             if (menu.open) dropdownBar.querySelectorAll('details').forEach(other => { if (other !== menu) other.open = false; });
           });
         });
+        // Cierra los menús al tocar fuera de la barra o del panel desplegado.
+        // Al tocar otro menú, se cierra el anterior y permanece abierto el nuevo.
+        const closeEditorDropdownsOutside = event => {
+          if (!dropdownBar.contains(event.target)) {
+            dropdownBar.querySelectorAll('details[open]').forEach(menu => { menu.open = false; });
+          }
+        };
+        document.addEventListener('pointerdown', closeEditorDropdownsOutside);
+        dropdownBar.querySelectorAll('details').forEach(menu => {
+          menu.addEventListener('toggle', () => {
+            if (menu.open) dropdownBar.querySelectorAll('details').forEach(other => { if (other !== menu) other.open = false; });
+          });
+        });
+        const closeEditorDropdownsOnEscape = event => {
+          if (event.key === 'Escape') dropdownBar.querySelectorAll('details[open]').forEach(menu => { menu.open = false; });
+        };
+        document.addEventListener('keydown', closeEditorDropdownsOnEscape);
         // Personalización visual del editor: aplicación inmediata y persistencia local.
         const editorColorDefaults = {
           workspace: '#10233d', surface: '#fffaf0', lyricsBg: '#fffdf7',
@@ -5471,7 +5490,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             el.style.background = c.chordBg; el.style.color = c.chordText; el.style.borderColor = c.accent;
           });
           dropdownBar.querySelectorAll('.editor-dropdown summary').forEach(el => { el.style.borderColor = c.accent; });
-          dropdownBar.querySelectorAll('.editor-dropdown-panel').forEach(el => { el.style.borderColor = c.accent; });
+          dropdownBar.querySelectorAll('.editor-dropdown-panel').forEach(el => { el.style.borderColor = c.accent; el.style.background = c.surface; el.style.color = c.text; });
           editorColorInputs.forEach(input => { if (c[input.dataset.editorColor]) input.value = c[input.dataset.editorColor]; });
         };
         const readEditorColors = () => Object.fromEntries(editorColorInputs.map(input => [input.dataset.editorColor, input.value]));
