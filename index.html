@@ -4730,6 +4730,73 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         });
       }
 
+      function insertChordAtSelection(textarea, chord) {
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? start;
+        const before = textarea.value.slice(0, start);
+        const selected = textarea.value.slice(start, end);
+        const after = textarea.value.slice(end);
+        // The chord is placed immediately before the selected word/phrase, without deleting it.
+        const needsSpace = selected && !/^\s/.test(selected) && before && !/[\s\n]$/.test(before);
+        const token = chord + (needsSpace ? '' : '');
+        textarea.value = before + token + selected + after;
+        const caret = start + token.length + selected.length;
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+      }
+
+      function loadExternalScript(url, test) {
+        return new Promise((resolve, reject) => {
+          if (test()) return resolve();
+          const existing = [...document.scripts].find(x => x.src === url);
+          if (existing) {
+            existing.addEventListener('load', () => resolve(), { once:true });
+            existing.addEventListener('error', () => reject(new Error('No se pudo cargar el lector de archivos')), { once:true });
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = url;
+          script.onload = () => test() ? resolve() : reject(new Error('La biblioteca de lectura no está disponible'));
+          script.onerror = () => reject(new Error('No se pudo cargar el lector. Revisa tu conexión a internet.'));
+          document.head.appendChild(script);
+        });
+      }
+
+      async function extractImportedSongText(file) {
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        if (ext === 'txt') return await file.text();
+        if (ext === 'docx') {
+          await loadExternalScript('https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js', () => Boolean(window.mammoth));
+          const buffer = await file.arrayBuffer();
+          const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
+          return result.value || '';
+        }
+        if (ext === 'pdf') {
+          await loadExternalScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', () => Boolean(window.pdfjsLib));
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          const data = new Uint8Array(await file.arrayBuffer());
+          const pdf = await window.pdfjsLib.getDocument({ data }).promise;
+          const pages = [];
+          for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+            const page = await pdf.getPage(pageNo);
+            const content = await page.getTextContent();
+            let lines = [], current = [], lastY = null;
+            content.items.forEach(item => {
+              const y = item.transform ? item.transform[5] : null;
+              if (lastY !== null && y !== null && Math.abs(y - lastY) > 3) {
+                lines.push(current.join('')); current = [];
+              }
+              current.push(item.str || '');
+              lastY = y;
+            });
+            if (current.length) lines.push(current.join(''));
+            pages.push(lines.join('\n'));
+          }
+          return pages.join('\n\n');
+        }
+        throw new Error('Formato no compatible. Utiliza PDF, DOCX o TXT.');
+      }
+
       function openSongFormModal(songId = null) {
         if (!requireAdmin()) return;
         const song = songId ? state.songs.find(s => s.id === songId) : null;
@@ -4805,6 +4872,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             </label>
             <div>
               <label class="field-label" for="sf-lyrics">Letra con acordes entre corchetes *</label>
+              <div class="row" style="flex-wrap:wrap; gap:7px; align-items:center; margin-bottom:7px;">
+                <button type="button" id="sf-import-document" class="btn btn-soft btn-sm">📄 Importar PDF / Word</button>
+                <input id="sf-import-file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" class="hidden" />
+                <span id="sf-import-status" style="font-size:.75rem;color:var(--text-muted);">Importa texto para revisarlo antes de guardar</span>
+              </div>
+              <div style="font-size:.76rem;color:var(--text-muted);margin:0 0 6px;">Editor de acordes: selecciona una palabra o coloca el cursor y pulsa el acorde. Se insertará sin borrar la letra.</div>
               <div class="chord-quick-bar">
                 ${QUICK_CHORD_BTNS.map((c, idx) => `<button type="button" class="chord-chip" data-qidx="${idx}">${c.label}</button>`).join('')}
               </div>
@@ -4820,6 +4893,31 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
         document.getElementById('sf-close').onclick = closeModal;
         document.getElementById('sf-cancel').onclick = closeModal;
+
+        const importInput = document.getElementById('sf-import-file');
+        const importStatus = document.getElementById('sf-import-status');
+        document.getElementById('sf-import-document').onclick = () => importInput.click();
+        importInput.onchange = async e => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          importStatus.textContent = 'Leyendo documento…';
+          try {
+            const importedText = (await extractImportedSongText(file)).replace(/\r/g, '').trim();
+            if (!importedText) throw new Error('No se encontró texto seleccionable. Si es un PDF escaneado, necesita OCR.');
+            const currentText = ta.value.trim();
+            ta.value = currentText ? currentText + '\n\n' + importedText : importedText;
+            const titleInput = document.getElementById('sf-title');
+            if (!titleInput.value.trim()) titleInput.value = file.name.replace(/\.(pdf|docx|txt)$/i, '').replace(/[_-]+/g, ' ');
+            importStatus.textContent = `Texto importado: ${file.name}. Revísalo antes de guardar.`;
+            ta.focus();
+            showToast('Texto importado; revisa y organiza el canto');
+          } catch (err) {
+            importStatus.textContent = err.message || 'No se pudo importar el archivo';
+            showToast(err.message || 'Error al importar documento');
+          } finally {
+            importInput.value = '';
+          }
+        };
 
         document.getElementById('sf-audio-file').onchange = e => {
           const f = e.target.files && e.target.files[0];
@@ -4852,9 +4950,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               return;
             }
 
-            ta.value = ta.value.slice(0, start) + item.val + ta.value.slice(end);
-            ta.focus();
-            ta.selectionStart = ta.selectionEnd = start + item.val.length;
+            insertChordAtSelection(ta, item.val);
+
           };
         });
 
