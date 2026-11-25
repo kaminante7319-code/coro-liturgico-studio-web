@@ -3278,15 +3278,8 @@ body.home-active #view-inicio .home-brand-band span {
       ];
 
       const QUICK_CHORD_BTNS = [
-        { label: '[C]', val: '[C]' },
-        { label: '[D]', val: '[D]' },
-        { label: '[E]', val: '[E]' },
-        { label: '[F]', val: '[F]' },
-        { label: '[G]', val: '[G]' },
-        { label: '[A]', val: '[A]' },
-        { label: '[B]', val: '[B]' },
-        { label: '[m]', mod: 'm' },
-        { label: '[7]', mod: '7' }
+        ...['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'].map(n => ({ label: `[${n}]`, val: `[${n}]` })),
+        ...['Cm','C#m','Dm','D#m','Em','Fm','F#m','Gm','G#m','Am','Bbm','Bm','C7','D7','E7','F7','G7','A7','B7','Dsus4','Asus4','D/F#','G/B'].map(n => ({ label: `[${n}]`, val: `[${n}]` }))
       ];
 
       const CHROMATIC_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -4311,6 +4304,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           </div>
 
           <div class="divider"></div>
+          <section style="display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--primary); border-radius:14px; background:var(--surface-2);">
+            <div><strong>🎼 Editor interactivo de cantos</strong><p class="section-desc" style="margin:4px 0 0;">Redacta o importa letras, arrastra acordes a su posición y guarda el canto en el repertorio.</p></div>
+            <button type="button" id="adm-open-song-editor" class="btn btn-primary" style="width:100%;">Abrir editor de cantos</button>
+          </section>
+          <div class="divider"></div>
           <section style="display:flex; flex-direction:column; gap:9px;">
             <div class="row-between" style="gap:8px;">
               <div>
@@ -4392,6 +4390,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         `);
 
         document.getElementById('adm-panel-close').onclick = closeModal;
+        document.getElementById('adm-open-song-editor').onclick = () => { closeModal(); openSongFormModal(null); };
         document.getElementById('adm-members-refresh').onclick = loadAuthorizedMembers;
         loadAuthorizedMembers();
         const inviteForm = document.getElementById('adm-invite-member-form');
@@ -5297,9 +5296,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
                 <input id="sf-import-file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" class="hidden" />
                 <span id="sf-import-status" style="font-size:.75rem;color:var(--text-muted);">Importa texto para revisarlo antes de guardar</span>
               </div>
-              <div style="font-size:.76rem;color:var(--text-muted);margin:0 0 6px;">Editor de acordes: selecciona una palabra o coloca el cursor y pulsa el acorde. Se insertará sin borrar la letra.</div>
+              <div style="font-size:.76rem;color:var(--text-muted);margin:0 0 6px;">Paleta de acordes: arrastra un acorde hasta la letra para colocarlo en esa posición, o pulsa el acorde con el cursor situado donde debe aparecer.</div>
               <div class="chord-quick-bar">
-                ${QUICK_CHORD_BTNS.map((c, idx) => `<button type="button" class="chord-chip" data-qidx="${idx}">${c.label}</button>`).join('')}
+                ${QUICK_CHORD_BTNS.map((c, idx) => `<button type="button" draggable="true" class="chord-chip" data-qidx="${idx}" data-chord="${esc(c.val || c.mod)}" title="Arrastra al texto o pulsa para insertar">${c.label}</button>`).join('')}
               </div>
               <textarea id="sf-lyrics" class="textarea" rows="8" required placeholder="[CORO]&#10;[D]Altar de paz, [G]mesa del Se[A7]ñor...">${esc(song ? song.lyrics : '')}</textarea>
             </div>
@@ -5348,6 +5347,28 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         };
 
         const ta = document.getElementById('sf-lyrics');
+        let draggedChord = '';
+        document.querySelectorAll('.chord-chip').forEach(btn => {
+          btn.addEventListener('dragstart', ev => {
+            const item = QUICK_CHORD_BTNS[parseInt(btn.dataset.qidx, 10)];
+            draggedChord = item?.val || (item?.mod ? `[${item.mod}]` : '');
+            ev.dataTransfer.setData('text/plain', draggedChord);
+            ev.dataTransfer.effectAllowed = 'copy';
+          });
+        });
+        ta.addEventListener('dragover', ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; });
+        ta.addEventListener('drop', ev => {
+          ev.preventDefault();
+          const chord = ev.dataTransfer.getData('text/plain') || draggedChord;
+          if (!/^\[[A-G](?:#|b)?(?:m|maj7|7|sus2|sus4|dim|aug)?(?:\/[A-G](?:#|b)?)?\]$/.test(chord)) return;
+          const pos = typeof document.caretRangeFromPoint === 'function'
+            ? (() => { const r = document.caretRangeFromPoint(ev.clientX, ev.clientY); if (!r) return ta.selectionStart; const pre = ta.value.slice(0, ta.selectionStart); return ta.selectionStart + Math.max(0, r.startOffset); })()
+            : ta.selectionStart;
+          const start = Math.min(Math.max(0, pos), ta.value.length);
+          ta.value = ta.value.slice(0, start) + chord + ta.value.slice(start);
+          ta.focus(); ta.selectionStart = ta.selectionEnd = start + chord.length;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        });
         document.querySelectorAll('.chord-chip').forEach(btn => {
           btn.onclick = () => {
             const item = QUICK_CHORD_BTNS[parseInt(btn.dataset.qidx, 10)];
