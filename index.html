@@ -2611,6 +2611,16 @@ body.home-active #view-inicio .home-brand-band span {
 #modal-card.editor-song-workspace .editor-side-tools strong{display:none}
 #modal-card.editor-song-workspace .editor-side-tools button{padding:9px 10px;border:1px solid rgba(201,164,95,.35);border-radius:8px;background:rgba(255,250,240,.07);color:#fffaf0;text-align:left;font-size:12px;font-weight:700}
 #modal-card.editor-song-workspace .editor-side-tools button:active{background:rgba(201,164,95,.25)}
+
+#modal-card.editor-song-workspace .editor-metadata-dropdown{min-width:190px}
+#modal-card.editor-song-workspace .editor-metadata-panel{width:min( min(88vw, 620px), calc(100vw - 32px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px 14px;padding:14px;background:#fffaf0;color:#17253a;border-color:#c9a45f}
+#modal-card.editor-song-workspace .editor-metadata-panel>div,#modal-card.editor-song-workspace .editor-metadata-panel>label{min-width:0;margin:0}
+#modal-card.editor-song-workspace .editor-metadata-panel>div:first-child,#modal-card.editor-song-workspace .editor-metadata-panel>div:nth-last-child(2){grid-column:1/-1}
+#modal-card.editor-song-workspace .editor-metadata-panel .field-label{color:#26364b}
+#modal-card.editor-song-workspace .editor-metadata-panel .input,#modal-card.editor-song-workspace .editor-metadata-panel .select{width:100%;box-sizing:border-box}
+#modal-card.editor-song-workspace .editor-metadata-panel .row-between{gap:8px}
+@media(max-width:760px){#modal-card.editor-song-workspace .editor-metadata-panel{position:fixed;left:8px;right:8px;top:112px;width:auto;grid-template-columns:1fr;max-height:62vh}#modal-card.editor-song-workspace .editor-metadata-panel>div:first-child,#modal-card.editor-song-workspace .editor-metadata-panel>div:nth-last-child(2){grid-column:auto}}
+
 @media(max-width:760px){#modal-card.editor-song-workspace{padding:64px 8px 14px}#modal-card.editor-song-workspace #song-form{padding:11px}#modal-card.editor-song-workspace .editor-dropdown-bar{gap:6px}#modal-card.editor-song-workspace .editor-dropdown{min-width:0;flex:1}#modal-card.editor-song-workspace .editor-dropdown summary{padding:9px 8px;font-size:11px}#modal-card.editor-song-workspace .editor-dropdown-panel{position:fixed;left:8px;right:8px;top:112px;min-width:0;max-width:none;max-height:55vh}#modal-card.editor-song-workspace #sf-lyrics{min-height:42vh}}
 
 </style>
@@ -5365,6 +5375,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         dropdownBar.className = 'editor-dropdown-bar';
         dropdownBar.setAttribute('aria-label', 'Menús de edición');
         dropdownBar.innerHTML = `
+          <details class="editor-dropdown editor-metadata-dropdown">
+            <summary>⚙ Datos del canto</summary>
+            <div class="editor-dropdown-panel editor-metadata-panel" id="editor-metadata-panel"></div>
+          </details>
           <details class="editor-dropdown">
             <summary>♫ Acordes</summary>
             <div class="editor-dropdown-panel" id="editor-chords-panel"></div>
@@ -5378,6 +5392,19 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             <div class="editor-dropdown-panel" id="editor-review-panel"></div>
           </details>`;
         songForm.insertBefore(dropdownBar, songForm.firstChild);
+
+        // Los datos generales del canto se presentan en un único menú desplegable.
+        const metadataPanel = document.getElementById('editor-metadata-panel');
+        const metadataNodes = [
+          document.getElementById('sf-title')?.parentElement,
+          document.getElementById('sf-moment')?.closest('.grid-2'),
+          document.getElementById('sf-key')?.closest('.grid-2'),
+          document.getElementById('sf-notes')?.parentElement,
+          document.getElementById('sf-audio-url')?.parentElement,
+          document.getElementById('sf-published')?.closest('label')
+        ].filter(Boolean);
+        metadataNodes.forEach(node => metadataPanel.appendChild(node));
+
         if (chordBar) document.getElementById('editor-chords-panel').appendChild(chordBar);
         const toolButtons = [...sideTools.querySelectorAll('button')];
         const sectionsPanel = document.getElementById('editor-sections-panel');
