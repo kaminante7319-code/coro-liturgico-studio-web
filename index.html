@@ -2591,6 +2591,21 @@ body.home-active #view-inicio .home-brand-band span {
     @media (max-width: 520px) {
       #global-home-return { width: 44px; height: 44px; right: 12px; bottom: max(14px, env(safe-area-inset-bottom)); }
     }
+
+/* Editor de cantos: espacio de trabajo de pantalla completa */
+#modal-backdrop.editor-song-backdrop{position:fixed;inset:0!important;padding:0!important;align-items:stretch!important;justify-content:stretch!important;z-index:1200!important;background:rgba(3,8,18,.96)!important;backdrop-filter:blur(8px)}
+#modal-card.editor-song-workspace{width:100%!important;height:100dvh!important;max-width:none!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important;overflow:auto!important;padding:18px 205px!important;background:linear-gradient(145deg,#10233d,#091426 65%,#142b47)!important;color:#fffaf0!important;box-shadow:none!important;position:relative}
+#modal-card.editor-song-workspace #song-form{max-width:1050px;margin:0 auto;padding:18px;border:1px solid rgba(201,164,95,.4);border-radius:16px;background:rgba(255,250,240,.97);color:#17253a;box-shadow:0 16px 45px rgba(0,0,0,.28)}
+#modal-card.editor-song-workspace .chord-quick-bar{position:fixed;left:14px;top:82px;bottom:18px;width:174px;overflow-y:auto;display:flex;align-content:flex-start;align-items:flex-start;flex-wrap:wrap;gap:7px;padding:12px;border:1px solid rgba(201,164,95,.75);border-radius:14px;background:linear-gradient(160deg,#1c3454,#091426);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#modal-card.editor-song-workspace .chord-quick-bar:before{content:'PALETA DE ACORDES';flex:0 0 100%;color:#e7c78b;font-size:10px;font-weight:850;letter-spacing:1.4px;margin-bottom:5px}
+#modal-card.editor-song-workspace .chord-chip{min-width:43px;background:#f4efdf;color:#10233d;border:1px solid #c9a45f;font-weight:800}
+#modal-card.editor-song-workspace #sf-lyrics{min-height:48vh;background:#fffdf7;color:#17253a;font-size:1rem;line-height:1.8}
+#modal-card.editor-song-workspace .editor-side-tools{position:fixed;right:14px;top:82px;bottom:18px;width:174px;display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(201,164,95,.75);border-radius:14px;background:linear-gradient(160deg,#1c3454,#091426);box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:auto}
+#modal-card.editor-song-workspace .editor-side-tools strong{color:#e7c78b;font-size:10px;letter-spacing:1.4px;margin-bottom:5px}
+#modal-card.editor-song-workspace .editor-side-tools button{padding:10px 8px;border:1px solid rgba(201,164,95,.4);border-radius:9px;background:rgba(255,250,240,.08);color:#fffaf0;text-align:left;font-size:12px;font-weight:700}
+#modal-card.editor-song-workspace .editor-side-tools button:active{background:rgba(201,164,95,.25)}
+@media(max-width:760px){#modal-card.editor-song-workspace{padding:70px 10px 16px}#modal-card.editor-song-workspace #song-form{padding:12px}#modal-card.editor-song-workspace .chord-quick-bar{top:8px;left:8px;right:8px;bottom:auto;width:auto;max-height:54px;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;align-items:center}#modal-card.editor-song-workspace .chord-quick-bar:before{display:none}#modal-card.editor-song-workspace .editor-side-tools{position:static;width:auto;min-height:0;max-height:none;flex-direction:row;flex-wrap:wrap;margin:8px 0}#modal-card.editor-song-workspace .editor-side-tools strong{flex:0 0 100%}#modal-card.editor-song-workspace #sf-lyrics{min-height:42vh}}
+
 </style>
 
 </head>
@@ -2664,6 +2679,7 @@ body.home-active #view-inicio .home-brand-band span {
           <button type="button" class="home-tools-branch-item" data-tool-open="tonos"><span>🎹</span><span>Tonos</span><b>›</b></button>
           <button type="button" class="home-tools-branch-item" data-tool-open="grabadora"><span>🎙️</span><span>Grabadora</span><b>›</b></button>
           <button type="button" class="home-tools-branch-item" data-tool-open="respaldo"><span>💾</span><span>Respaldo</span><b>›</b></button>
+          <button type="button" id="admin-song-editor-entry" class="home-tools-branch-item hidden" data-tool-open="editor-cantos"><span>🎼</span><span>Editor de cantos</span><b>›</b></button>
         </div>
       </div>
       <div class="home-center-stage">
@@ -3836,13 +3852,19 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function openModal(html) {
-        document.getElementById('modal-card').innerHTML = html;
-        document.getElementById('modal-backdrop').classList.remove('hidden');
+        const card = document.getElementById('modal-card');
+        const backdrop = document.getElementById('modal-backdrop');
+        card.classList.remove('editor-song-workspace');
+        backdrop.classList.remove('editor-song-backdrop');
+        card.innerHTML = html;
+        backdrop.classList.remove('hidden');
       }
 
       function closeModal() {
         const backdrop = document.getElementById('modal-backdrop');
-        if (backdrop) backdrop.classList.add('hidden');
+        if (backdrop) { backdrop.classList.add('hidden'); backdrop.classList.remove('editor-song-backdrop'); }
+        const modalCard = document.getElementById('modal-card');
+        if (modalCard) modalCard.classList.remove('editor-song-workspace');
         // Keep modal DOM intact until the next openModal() replaces it.
       }
 
@@ -4100,6 +4122,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           roleBtn.title = 'Ingresar con cuenta autorizada';
           brandSub.textContent = 'Acceso privado';
         }
+
+        // Editor de cantos: solo visible en Modo Administrador
+        const editorEntry = document.getElementById('admin-song-editor-entry');
+        if (editorEntry) editorEntry.classList.toggle('hidden', !state.isAdmin);
 
         // Cantoral Admin controls
         document.getElementById('cantoral-admin-banner').classList.toggle('hidden', !state.isAdmin);
@@ -5309,6 +5335,40 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             </div>
           </form>
         `);
+
+        const editorBackdrop = document.getElementById('modal-backdrop');
+        const editorCard = document.getElementById('modal-card');
+        editorBackdrop.classList.add('editor-song-backdrop');
+        editorCard.classList.add('editor-song-workspace');
+        const songForm = document.getElementById('song-form');
+        const sideTools = document.createElement('aside');
+        sideTools.className = 'editor-side-tools';
+        sideTools.setAttribute('aria-label', 'Herramientas de edición');
+        sideTools.innerHTML = `<strong>HERRAMIENTAS DE EDICIÓN</strong>
+          <button type="button" data-editor-insert="[ESTROFA]\n">＋ Insertar estrofa</button>
+          <button type="button" data-editor-insert="[CORO]\n">♫ Insertar coro</button>
+          <button type="button" data-editor-insert="[PUENTE]\n">↗ Insertar puente</button>
+          <button type="button" data-editor-insert="\n">↵ Separar sección</button>
+          <button type="button" id="editor-preview-format">👁 Vista de acordes</button>`;
+        songForm.appendChild(sideTools);
+        sideTools.querySelectorAll('[data-editor-insert]').forEach(button => {
+          button.addEventListener('click', () => {
+            const area = document.getElementById('sf-lyrics');
+            if (!area) return;
+            const start = area.selectionStart, end = area.selectionEnd;
+            const value = button.dataset.editorInsert;
+            area.setRangeText(value, start, end, 'end');
+            area.focus();
+          });
+        });
+        document.getElementById('editor-preview-format').onclick = () => {
+          const area = document.getElementById('sf-lyrics');
+          if (!area) return;
+          const showing = area.dataset.preview === '1';
+          area.dataset.preview = showing ? '0' : '1';
+          area.style.background = showing ? '#fffdf7' : '#f4efdf';
+          showToast(showing ? 'Edición de letra' : 'Vista de revisión activada');
+        };
 
         document.getElementById('sf-close').onclick = closeModal;
         document.getElementById('sf-cancel').onclick = closeModal;
@@ -7265,13 +7325,16 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.querySelectorAll('[data-tool-open]').forEach(btn => {
           btn.onclick = () => {
             const target = btn.dataset.toolOpen;
+            if (target === 'editor-cantos' && !state.isAdmin) { showToast('El Editor de Cantos requiere Modo Administrador'); return; }
             const branch = document.getElementById('home-tools-branch');
             if (branch) { branch.classList.remove('is-open'); branch.setAttribute('aria-hidden','true'); }
             const toolsEntry = document.querySelector('[data-home-open="herramientas"]');
             if (toolsEntry) toolsEntry.setAttribute('aria-expanded','false');
             if (homeRadialMenu) { homeRadialMenu.classList.remove('is-open'); homeRadialMenu.setAttribute('aria-hidden','true'); }
             if (homeBookButton) homeBookButton.setAttribute('aria-expanded','false');
-            if (target === 'metronomo') {
+            if (target === 'editor-cantos') {
+              openSongFormModal();
+            } else if (target === 'metronomo') {
               showTab('metronomo');
             } else if (['afinador', 'tonos', 'grabadora'].includes(target)) {
               showTab('estudio');
