@@ -2129,6 +2129,149 @@ html{background:var(--bg)} body{background:radial-gradient(ellipse at 50% -20%,#
 .unified-tools-toggle .toggle-arrow{color:#17243a}
 @media(prefers-reduced-motion:no-preference){.card,.tool-menu-btn,.btn{transition:background .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}}
 </style>
+
+<style id="cls-floating-tools-minimal-7-6">
+/* 7.6 — Ventanas flotantes minimalistas: capa exclusivamente visual */
+.mini-tool-window{
+  width:min(310px, calc(100vw - 24px)) !important;
+  max-height:min(54vh, 470px) !important;
+  padding:9px !important;
+  border-radius:14px !important;
+  border:1px solid rgba(201,164,95,.24) !important;
+  background:rgba(15,28,47,.97) !important;
+  box-shadow:0 12px 32px rgba(0,0,0,.28) !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain;
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+}
+.mini-tool-window.drag-floating{
+  right:12px !important;
+  top:96px !important;
+  bottom:auto !important;
+}
+.mini-tool-window.mini-tool-second.drag-floating{
+  left:12px !important;
+  right:auto !important;
+  top:110px !important;
+}
+.mini-tool-window .mini-tool-header{
+  position:relative !important;
+  top:auto !important;
+  padding:1px 1px 7px !important;
+  margin:0 0 8px !important;
+  border-bottom:1px solid rgba(201,164,95,.16) !important;
+  background:transparent !important;
+  cursor:default !important;
+}
+.mini-tool-window .mini-tool-title{
+  font-size:.82rem !important;
+  letter-spacing:.01em;
+}
+.mini-tool-window .mini-tool-close{
+  width:29px !important;
+  height:29px !important;
+  padding:0 !important;
+  display:grid !important;
+  place-items:center !important;
+  border-radius:50% !important;
+  font-size:.82rem !important;
+  background:rgba(255,255,255,.045) !important;
+}
+.mini-tool-window .card{
+  padding:9px !important;
+  border-radius:11px !important;
+  box-shadow:none !important;
+}
+.mini-tool-window .section-title,
+.mini-tool-window h2{
+  font-size:.92rem !important;
+  margin:0 0 3px !important;
+}
+.mini-tool-window .section-desc{
+  font-size:.72rem !important;
+  line-height:1.35 !important;
+  margin:0 0 6px !important;
+}
+.mini-tool-window .field-label{
+  font-size:.66rem !important;
+  margin:6px 0 4px !important;
+}
+.mini-tool-window .btn{
+  min-height:34px !important;
+  padding:6px 9px !important;
+  font-size:.76rem !important;
+  border-radius:9px !important;
+}
+.mini-tool-window .tone-grid-6,
+.mini-tool-window .tone-grid-12{
+  gap:5px !important;
+}
+.mini-tool-window .tone-btn{
+  min-height:44px !important;
+  padding:5px 2px !important;
+  border-radius:9px !important;
+}
+.mini-tool-window .tone-btn .t-main{font-size:.82rem !important}
+.mini-tool-window .tone-btn .t-sub{font-size:.58rem !important;line-height:1.1}
+.mini-tool-window #panel-tonos .row-between{gap:7px}
+.mini-tool-window #panel-tonos #ref-audio-status{font-size:.68rem !important;min-height:0}
+.mini-tool-window #view-metronomo .bpm-big,
+.mini-tool-window .bpm-big{font-size:2.2rem !important;line-height:1.05 !important}
+.mini-tool-window #view-metronomo .row{gap:5px !important;margin:8px 0 4px !important}
+.mini-tool-window #view-metronomo .grid-2{margin-top:9px !important}
+.mini-tool-window #view-metronomo [style*="margin-top:16px"]{margin-top:9px !important}
+.mini-tool-window #view-metronomo [style*="margin-top:18px"]{margin-top:10px !important}
+.mini-tool-window input[type="range"]{min-height:24px !important}
+.mini-tool-window .tuner-note-big{font-size:2.5rem !important}
+.mini-tool-window .tuner-meter{height:42px !important;margin:8px 0 !important}
+@media (max-width:600px){
+
+}
+@media (orientation:landscape) and (max-height:520px){
+  .mini-tool-window{max-height:68vh !important;width:min(300px,48vw) !important}
+}
+</style>
+
+
+<style id="cls-floating-windows-free">
+  .mini-tool-window.drag-floating {
+    position:fixed!important; display:block!important; visibility:visible!important;
+    inset:auto!important; margin:0!important; transform:none!important;
+    min-width:220px!important; min-height:130px!important;
+    max-width:calc(100vw - 8px)!important; max-height:calc(100dvh - 8px)!important;
+    overflow:auto!important; resize:none!important; z-index:1400;
+    border-radius:14px!important; box-shadow:0 18px 48px rgba(0,0,0,.38)!important;
+    touch-action:pan-y; overscroll-behavior:contain;
+  }
+  .mini-tool-window.drag-floating .mini-tool-header {
+    position:sticky!important; top:0!important; z-index:20!important;
+    display:flex!important; align-items:center!important; justify-content:space-between!important;
+    min-height:42px; padding:7px 9px!important; margin:-2px -2px 9px!important;
+    border-radius:10px; background:var(--surface-2)!important;
+    cursor:move!important; touch-action:none!important; user-select:none;
+  }
+  .mini-tool-window.drag-floating .mini-tool-close { flex:0 0 auto; }
+  .floating-resize-handle { position:absolute; z-index:30; touch-action:none; }
+  .floating-resize-handle.resize-n,.floating-resize-handle.resize-s { left:12px; right:12px; height:12px; }
+  .floating-resize-handle.resize-n { top:-4px; cursor:ns-resize; }
+  .floating-resize-handle.resize-s { bottom:-4px; cursor:ns-resize; }
+  .floating-resize-handle.resize-e,.floating-resize-handle.resize-w { top:12px; bottom:12px; width:12px; }
+  .floating-resize-handle.resize-e { right:-4px; cursor:ew-resize; }
+  .floating-resize-handle.resize-w { left:-4px; cursor:ew-resize; }
+  .floating-resize-handle.resize-ne,.floating-resize-handle.resize-nw,
+  .floating-resize-handle.resize-se,.floating-resize-handle.resize-sw { width:22px; height:22px; }
+  .floating-resize-handle.resize-ne { top:0; right:0; cursor:nesw-resize; }
+  .floating-resize-handle.resize-nw { top:0; left:0; cursor:nwse-resize; }
+  .floating-resize-handle.resize-se { bottom:0; right:0; cursor:nwse-resize; }
+  .floating-resize-handle.resize-sw { bottom:0; left:0; cursor:nesw-resize; }
+  @media (max-width:600px) {
+    .mini-tool-window.drag-floating { max-width:calc(100vw - 8px)!important; }
+    .floating-resize-handle.resize-ne,.floating-resize-handle.resize-nw,
+    .floating-resize-handle.resize-se,.floating-resize-handle.resize-sw { width:26px; height:26px; }
+  }
+</style>
+
 </head>
 <body>
 
@@ -4218,15 +4361,29 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       // Herramientas flotantes: deben existir únicamente dentro del Visor.
       let activeMiniTools = new Map();
+      const floatingPlaceholders = new Map();
+
+      function returnFloatingWindow(target, el) {
+        const marker = floatingPlaceholders.get(target);
+        if (marker && marker.parentNode) {
+          marker.parentNode.insertBefore(el, marker);
+          marker.remove();
+        }
+        floatingPlaceholders.delete(target);
+        el.classList.add('hidden');
+        el.classList.remove('mini-tool-window','mini-tool-second','drag-floating');
+        el.querySelectorAll('.floating-resize-handle').forEach(h => h.remove());
+        ['left','top','right','bottom','width','height'].forEach(k => el.style.removeProperty(k));
+        el.style.zIndex = '';
+      }
+
       function closeAllFloatingTools() {
+        // Cierre explícito: detiene procesos activos y devuelve cada panel a su lugar original.
         try { stopRefTone(); } catch (e) {}
         try { if (state.metroRunning) toggleMetronome(); } catch (e) {}
         try { if (state.tunerRunning) stopTuner(); } catch (e) {}
         try { if (state.recRunning) stopRecording(); } catch (e) {}
-        ['metronomo','afinador','grabadora','tonos'].forEach(target => {
-          const el = target === 'metronomo' ? document.getElementById('view-metronomo') : document.getElementById(`panel-${target}`);
-          if (el) { el.classList.add('hidden'); el.classList.remove('mini-tool-window','mini-tool-second','drag-floating'); el.style.left=''; el.style.top=''; el.style.right=''; el.style.bottom=''; }
-        });
+        [...activeMiniTools.entries()].forEach(([target, el]) => returnFloatingWindow(target, el));
         activeMiniTools.clear();
         const host = document.getElementById('view-estudio');
         if (host) { host.classList.remove('mini-tools-host'); host.classList.add('hidden'); }
@@ -4239,60 +4396,142 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         if (target === 'metronomo' && state.metroRunning) toggleMetronome();
         if (target === 'afinador' && state.tunerRunning) stopTuner();
         if (target === 'grabadora' && state.recRunning) stopRecording();
-        el.classList.add('hidden'); el.classList.remove('mini-tool-window','mini-tool-second','drag-floating');
-        el.style.left=''; el.style.top=''; el.style.right=''; el.style.bottom='';
+        returnFloatingWindow(target, el);
         activeMiniTools.delete(target);
-        [...activeMiniTools.values()].forEach((win, idx) => win.classList.toggle('mini-tool-second', idx === 1));
         const host = document.getElementById('view-estudio');
-        if (![...activeMiniTools.keys()].some(k => ['afinador','grabadora','tonos'].includes(k))) host.classList.remove('mini-tools-host');
-        if (!activeMiniTools.size) host.classList.add('hidden');
+        if (host) {
+          const hasStudyTool = [...activeMiniTools.keys()].some(k => ['afinador','grabadora','tonos'].includes(k));
+          host.classList.toggle('mini-tools-host', hasStudyTool);
+          if (!hasStudyTool) host.classList.add('hidden');
+        }
+      }
+
+      function bringFloatingToFront(el) {
+        window.__clsFloatingZ = (window.__clsFloatingZ || 1400) + 1;
+        el.style.zIndex = String(window.__clsFloatingZ);
+      }
+
+      function addFloatingResizeHandles(el) {
+        ['n','s','e','w','ne','nw','se','sw'].forEach(dir => {
+          const handle = document.createElement('div');
+          handle.className = `floating-resize-handle resize-${dir}`;
+          handle.dataset.resize = dir;
+          handle.setAttribute('aria-label', 'Cambiar tamaño de ventana');
+          el.appendChild(handle);
+          handle.addEventListener('pointerdown', ev => {
+            ev.preventDefault(); ev.stopPropagation();
+            bringFloatingToFront(el);
+            const rect = el.getBoundingClientRect();
+            const sx = ev.clientX, sy = ev.clientY;
+            const start = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+            const minW = 220, minH = 130;
+            handle.setPointerCapture?.(ev.pointerId);
+            const move = e => {
+              const dx = e.clientX - sx, dy = e.clientY - sy;
+              let left = start.left, top = start.top, width = start.width, height = start.height;
+              if (dir.includes('e')) width = Math.max(minW, Math.min(window.innerWidth - start.left - 4, start.width + dx));
+              if (dir.includes('s')) height = Math.max(minH, Math.min(window.innerHeight - start.top - 4, start.height + dy));
+              if (dir.includes('w')) { width = Math.max(minW, Math.min(start.width + start.left - 4, start.width - dx)); left = start.left + start.width - width; }
+              if (dir.includes('n')) { height = Math.max(minH, Math.min(start.height + start.top - 4, start.height - dy)); top = start.top + start.height - height; }
+              el.style.setProperty('left', Math.max(4, left) + 'px', 'important');
+              el.style.setProperty('top', Math.max(4, top) + 'px', 'important');
+              el.style.setProperty('right', 'auto', 'important');
+              el.style.setProperty('bottom', 'auto', 'important');
+              el.style.setProperty('width', width + 'px', 'important');
+              el.style.setProperty('height', height + 'px', 'important');
+            };
+            const done = () => {
+              handle.removeEventListener('pointermove', move);
+              handle.removeEventListener('pointerup', done);
+              handle.removeEventListener('pointercancel', done);
+            };
+            handle.addEventListener('pointermove', move);
+            handle.addEventListener('pointerup', done);
+            handle.addEventListener('pointercancel', done);
+          });
+        });
       }
 
       function openMiniTool(target) {
-        // Keep Visor as the main surface. Two distinct compact tools may remain open simultaneously.
-        if (activeMiniTools.has(target)) return;
-        if (activeMiniTools.size >= 2) { showToast('Puedes mantener abiertas hasta 2 herramientas a la vez. Cierra una para abrir otra.'); return; }
-        ['cantoral','listas','ensayo'].forEach(t => document.getElementById(`view-${t}`).classList.add('hidden'));
-        document.getElementById('view-visor').classList.remove('hidden');
-        let section;
-        if (target === 'metronomo') section = document.getElementById('view-metronomo');
-        else {
-          const host = document.getElementById('view-estudio');
-          host.classList.remove('hidden'); host.classList.add('mini-tools-host');
-          section = document.getElementById(`panel-${target}`);
-          // Don't hide a second floating study tool already open.
-          if (!activeMiniTools.size) showEstudioSub(target); else section.classList.remove('hidden');
+        if (activeMiniTools.has(target)) {
+          bringFloatingToFront(activeMiniTools.get(target));
+          return;
         }
-        section.classList.remove('hidden'); section.classList.add('mini-tool-window');
-        section.classList.toggle('mini-tool-second', activeMiniTools.size === 1);
-        const title = target === 'metronomo' ? '⏱️ Metrónomo' : ({afinador:'🎯 Afinador',grabadora:'Grabadora',tonos:'🎹 Tonos de referencia'}[target] || 'Herramienta');
+        const host = document.getElementById('view-estudio');
+        let section = target === 'metronomo'
+          ? document.getElementById('view-metronomo')
+          : document.getElementById(`panel-${target}`);
+        if (!section) return;
+
+        // Guardar el lugar original y sacar la ventana del contenedor de navegación.
+        const marker = document.createComment(`floating-window-${target}`);
+        section.parentNode.insertBefore(marker, section);
+        floatingPlaceholders.set(target, marker);
+
+        if (target !== 'metronomo') {
+          host.classList.remove('hidden');
+          host.classList.add('mini-tools-host');
+          if (!activeMiniTools.size) showEstudioSub(target);
+        }
+        section.classList.remove('hidden');
+        section.classList.add('mini-tool-window','drag-floating');
+        section.classList.remove('mini-tool-second');
+        document.body.appendChild(section);
+
+        const titles = {
+          metronomo:'⏱️ Metrónomo', afinador:'🎯 Afinador',
+          grabadora:'🎙️ Grabadora', tonos:'🎹 Tonos de referencia'
+        };
         let header = section.querySelector('.mini-tool-header');
-        if (!header) { header = document.createElement('div'); header.className='mini-tool-header'; section.prepend(header); }
-        header.innerHTML = `<span class="mini-tool-title">${title}</span><button type="button" class="mini-tool-close" aria-label="Cerrar herramienta">✕</button>`;
-        header.querySelector('.mini-tool-close').onclick = () => closeMiniTool(target);
-        // Ventana flotante movible: el encabezado actúa como agarradera, compatible con mouse y táctil.
-        section.classList.add('drag-floating');
+        if (!header) { header = document.createElement('div'); header.className = 'mini-tool-header'; section.prepend(header); }
+        header.innerHTML = `<span class="mini-tool-title">${titles[target] || 'Herramienta'}</span><button type="button" class="mini-tool-close" aria-label="Cerrar herramienta">✕</button>`;
+        header.querySelector('.mini-tool-close').onclick = ev => { ev.stopPropagation(); closeMiniTool(target); };
         header.style.cursor = 'move';
         header.style.touchAction = 'none';
+
         if (!header.dataset.dragBound) {
           header.dataset.dragBound = '1';
           header.addEventListener('pointerdown', ev => {
             if (ev.target.closest('.mini-tool-close')) return;
             ev.preventDefault();
+            bringFloatingToFront(section);
             const rect = section.getBoundingClientRect();
-            const startX = ev.clientX, startY = ev.clientY, startLeft = rect.left, startTop = rect.top;
+            const sx = ev.clientX, sy = ev.clientY, sl = rect.left, st = rect.top;
             header.setPointerCapture?.(ev.pointerId);
             const move = e => {
-              const left = Math.max(4, Math.min(window.innerWidth - section.offsetWidth - 4, startLeft + (e.clientX - startX)));
-              const top = Math.max(4, Math.min(window.innerHeight - 80, startTop + (e.clientY - startY)));
-              section.style.left = left + 'px'; section.style.top = top + 'px'; section.style.right = 'auto'; section.style.bottom = 'auto';
+              const left = Math.max(4, Math.min(window.innerWidth - section.offsetWidth - 4, sl + e.clientX - sx));
+              const top = Math.max(4, Math.min(window.innerHeight - Math.min(60, header.offsetHeight) - 4, st + e.clientY - sy));
+              section.style.setProperty('left', left + 'px', 'important');
+              section.style.setProperty('top', top + 'px', 'important');
+              section.style.setProperty('right', 'auto', 'important');
+              section.style.setProperty('bottom', 'auto', 'important');
             };
-            const up = () => { header.removeEventListener('pointermove', move); header.removeEventListener('pointerup', up); header.removeEventListener('pointercancel', up); };
-            header.addEventListener('pointermove', move); header.addEventListener('pointerup', up); header.addEventListener('pointercancel', up);
+            const done = () => {
+              header.removeEventListener('pointermove', move);
+              header.removeEventListener('pointerup', done);
+              header.removeEventListener('pointercancel', done);
+            };
+            header.addEventListener('pointermove', move);
+            header.addEventListener('pointerup', done);
+            header.addEventListener('pointercancel', done);
           });
         }
+        section.addEventListener('pointerdown', () => bringFloatingToFront(section), { passive:true });
+        addFloatingResizeHandles(section);
+
+        // Posición inicial escalonada; después cada ventana queda completamente libre.
+        const offset = (activeMiniTools.size % 5) * 28;
+        const width = Math.min(360, window.innerWidth - 20);
+        section.style.setProperty('width', width + 'px', 'important');
+        section.style.setProperty('height', 'auto', 'important');
+        section.style.setProperty('left', Math.max(6, window.innerWidth - width - 18 - offset) + 'px', 'important');
+        section.style.setProperty('top', (70 + offset) + 'px', 'important');
+        section.style.setProperty('right', 'auto', 'important');
+        section.style.setProperty('bottom', 'auto', 'important');
+        bringFloatingToFront(section);
         activeMiniTools.set(target, section);
         state.activeTab = 'visor';
+        document.getElementById('view-visor').classList.remove('hidden');
         if (target === 'grabadora') resizeRecCanvas();
       }
 
@@ -4300,12 +4539,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       // 7. NAVIGATION CONTROLLER
       // ===================================================================
       function showTab(tabName) {
-        if (tabName !== 'visor') closeAllFloatingTools();
         state.activeTab = tabName;
         ['cantoral', 'visor', 'listas', 'metronomo', 'estudio', 'ensayo'].forEach(t => {
           const section = document.getElementById(`view-${t}`);
-          section.classList.remove('mini-tool-window');
-          section.classList.toggle('hidden', t !== tabName);
+          if (!section.classList.contains('mini-tool-window')) {
+            section.classList.toggle('hidden', t !== tabName);
+          }
         });
         document.querySelectorAll('.nav-item').forEach(btn => {
           btn.classList.toggle('active', btn.dataset.tab === tabName);
