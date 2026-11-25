@@ -3334,7 +3334,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function closeModal() {
-        document.getElementById('modal-backdrop').classList.add('hidden');
+        const backdrop = document.getElementById('modal-backdrop');
+        if (backdrop) backdrop.classList.add('hidden');
+        // Keep modal DOM intact until the next openModal() replaces it.
       }
 
       function confirmDialog(title, msg, okText, onOk) {
@@ -6111,6 +6113,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         clearReferenceToneButtons();
         referenceToneStatus('Tono detenido. Oprime otra nota para escucharla.');
       }
+      // Exponer explícitamente la función usada por el onclick del botón Silenciar.
+      window.stopRefTone = stopRefTone;
 
       // Función global para que el onclick directo funcione aun cuando el panel se mueva.
       window.playReferenceTone = function(button) {
