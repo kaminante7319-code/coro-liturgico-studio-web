@@ -2464,6 +2464,19 @@ nav.unified-tools-nav.legacy-tools-nav {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+/* Regla reforzada: el contenedor heredado permanece en el DOM para que
+   sus referencias JavaScript no fallen, pero nunca se muestra. */
+html body #legacy-tools-nav,
+html body nav#legacy-tools-nav.unified-tools-nav.legacy-tools-nav {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
 
 </style>
 
@@ -3114,7 +3127,7 @@ body.home-active #view-inicio .home-brand-band span {
   <!-- FIXED BOTTOM NAVIGATION BAR (6 TABS)                                  -->
   <!-- ===================================================================== -->
   <!-- BARRA ÚNICA: acceso a cantos, ensayo y productividad -->
-  <nav class="unified-tools-nav legacy-tools-nav" aria-label="Herramientas antiguas" aria-hidden="true">
+  <nav id="legacy-tools-nav" class="unified-tools-nav legacy-tools-nav" aria-label="Herramientas antiguas" aria-hidden="true" hidden style="display:none !important; visibility:hidden !important; pointer-events:none !important;">
     <div class="unified-tools-wrap">
       <button type="button" id="unified-tools-toggle" class="unified-tools-toggle" aria-expanded="false" aria-controls="unified-tools-menu">
         <span class="toggle-left"><span style="font-size:1.35rem">☰</span><span>Herramientas y repertorio</span></span>
