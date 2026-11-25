@@ -2525,7 +2525,7 @@ html{background:var(--bg)} body{background:radial-gradient(ellipse at 50% -20%,#
             <p class="section-desc">Oprime una nota para escucharla.</p>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button id="btn-ref-stop" type="button" class="btn btn-danger btn-sm hidden" onclick="stopRefTone()">Silenciar</button>
+            <button id="btn-ref-stop" type="button" class="btn btn-danger btn-sm hidden" onclick="window.stopRefTone && window.stopRefTone(); return false;">Silenciar</button>
           </div>
         </div>
         <span id="ref-audio-status" class="section-desc" style="display:block;margin-bottom:10px;"></span>
@@ -6115,6 +6115,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
       // Exponer explícitamente la función usada por el onclick del botón Silenciar.
       window.stopRefTone = stopRefTone;
+      // Respaldo delegado: el control sigue funcionando aunque el panel cambie de contenedor.
+      document.addEventListener('click', function(event) {
+        const stopButton = event.target && event.target.closest ? event.target.closest('#btn-ref-stop') : null;
+        if (!stopButton) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof window.stopRefTone === 'function') window.stopRefTone();
+      }, true);
 
       // Función global para que el onclick directo funcione aun cuando el panel se mueva.
       window.playReferenceTone = function(button) {
