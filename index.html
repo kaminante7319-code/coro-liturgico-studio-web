@@ -2638,6 +2638,17 @@ body.home-active #view-inicio .home-brand-band span {
 @media(max-width:760px){#modal-card.editor-song-workspace .editor-metadata-panel{position:fixed;left:8px;right:8px;top:112px;width:auto;grid-template-columns:1fr;max-height:62vh}#modal-card.editor-song-workspace .editor-metadata-panel>div:first-child,#modal-card.editor-song-workspace .editor-metadata-panel>div:nth-last-child(2){grid-column:auto}}
 
 
+/* Edición visual con acordes provisionales reubicables */
+#modal-card.editor-song-workspace #sf-lyrics-visual{min-height:48vh;max-height:58vh;overflow:auto;padding:14px;border:1px solid #c9a45f;border-radius:10px;background:#fffdf7;color:#17253a;font-size:1rem;line-height:2;white-space:pre-wrap;overflow-wrap:anywhere;outline:none;box-shadow:inset 0 1px 3px rgba(0,0,0,.08)}
+#modal-card.editor-song-workspace #sf-lyrics-visual:empty:before{content:attr(data-placeholder);color:#8993a2;pointer-events:none}
+#modal-card.editor-song-workspace #sf-lyrics-visual:focus{border-color:#b88b35;box-shadow:0 0 0 3px rgba(201,164,95,.18)}
+#modal-card.editor-song-workspace .draft-chord{display:inline-flex;align-items:center;margin:0 2px;padding:1px 7px;border:1px dashed #b88b35;border-radius:6px;background:#f4efdf;color:#10233d;font-weight:900;line-height:1.6;cursor:grab;user-select:none;vertical-align:baseline}
+#modal-card.editor-song-workspace .draft-chord:active{cursor:grabbing}
+#modal-card.editor-song-workspace .draft-chord.is-validated{border-style:solid;background:#dce9dc;color:#214b2c;cursor:default}
+#modal-card.editor-song-workspace .editor-chord-validation-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 14px;padding:8px 10px;border:1px solid rgba(201,164,95,.45);border-radius:9px;background:#fffaf0;color:#17253a;font-size:12px}
+#modal-card.editor-song-workspace #sf-lyrics-visual.is-preview{background:#f4efdf}
+@media(max-width:760px){#modal-card.editor-song-workspace #sf-lyrics-visual{min-height:42vh;max-height:54vh;padding:11px;font-size:15px}#modal-card.editor-song-workspace .editor-chord-validation-bar{align-items:flex-start;flex-direction:column}}
+
 /* Paleta de acordes flotante, arrastrable con mouse, lápiz o tacto */
 #modal-card.editor-song-workspace .editor-floating-chord-palette{display:none;position:fixed;z-index:1305;left:auto;right:22px;top:150px;width:min(340px,calc(100vw - 24px));max-height:min(58vh,520px);overflow:hidden;border:1px solid #c9a45f;border-radius:13px;background:#fffaf0;color:#17253a;box-shadow:0 18px 48px rgba(0,0,0,.42)}
 #modal-card.editor-song-workspace .editor-floating-chord-palette.is-visible{display:block}
@@ -5599,19 +5610,22 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         dropdownBar.querySelectorAll('[data-editor-insert]').forEach(button => {
           button.addEventListener('click', () => {
             const area = document.getElementById('sf-lyrics');
-            if (!area) return;
-            const start = area.selectionStart, end = area.selectionEnd;
-            const value = button.dataset.editorInsert;
-            area.setRangeText(value, start, end, 'end');
-            area.focus();
+            const visual = document.getElementById('sf-lyrics-visual');
+            if (!area || !visual) return;
+            visual.focus();
+            const sel=window.getSelection();
+            let range=sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+            if (!range || !visual.contains(range.startContainer)) { range=document.createRange(); range.selectNodeContents(visual); range.collapse(false); }
+            range.deleteContents(); range.insertNode(document.createTextNode(button.dataset.editorInsert));
+            syncDraftToTextarea();
           });
         });
         document.getElementById('editor-preview-format').onclick = () => {
-          const area = document.getElementById('sf-lyrics');
+          const area = document.getElementById('sf-lyrics-visual');
           if (!area) return;
           const showing = area.dataset.preview === '1';
           area.dataset.preview = showing ? '0' : '1';
-          area.style.background = showing ? '#fffdf7' : '#f4efdf';
+          area.classList.toggle('is-preview',!showing);
           showToast(showing ? 'Edición de letra' : 'Vista de revisión activada');
         };
 
@@ -5630,6 +5644,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             if (!importedText) throw new Error('No se encontró texto seleccionable. Si es un PDF escaneado, necesita OCR.');
             const currentText = ta.value.trim();
             ta.value = currentText ? currentText + '\n\n' + importedText : importedText;
+            renderDraftLyrics(ta.value);
             const titleInput = document.getElementById('sf-title');
             if (!titleInput.value.trim()) titleInput.value = file.name.replace(/\.(pdf|docx|txt)$/i, '').replace(/[_-]+/g, ' ');
             importStatus.textContent = `Texto importado: ${file.name}. Revísalo antes de guardar.`;
@@ -5652,53 +5667,108 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         };
 
         const ta = document.getElementById('sf-lyrics');
+        // Área visual: cada acorde queda como una ficha independiente que se puede reubicar
+        // hasta validar. El textarea original se conserva como formato compatible para guardar.
+        const visualEditor = document.createElement('div');
+        visualEditor.id = 'sf-lyrics-visual';
+        visualEditor.className = 'sf-lyrics-visual';
+        visualEditor.contentEditable = 'true';
+        visualEditor.setAttribute('role','textbox');
+        visualEditor.setAttribute('aria-multiline','true');
+        visualEditor.setAttribute('data-placeholder','Escribe o pega aquí la letra. Arrastra acordes desde la paleta.');
+        ta.insertAdjacentElement('afterend', visualEditor);
+        ta.style.display = 'none';
         let draggedChord = '';
+        let draggedPlacedChord = null;
+        let chordsValidated = false;
+        const escapeEditorText = value => String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const renderDraftLyrics = value => {
+          const parts = String(value || '').split(/(\[[A-G](?:#|b)?(?:m|maj7|7|sus2|sus4|dim|aug)?(?:\/[A-G](?:#|b)?)?\])/g);
+          visualEditor.innerHTML = parts.map(part => /^\[[A-G]/.test(part)
+            ? `<span class="draft-chord" draggable="true" data-chord-token="${escapeEditorText(part.slice(1,-1))}" contenteditable="false">${escapeEditorText(part.slice(1,-1))}</span>`
+            : escapeEditorText(part).replace(/\n/g,'<br>')).join('');
+        };
+        const serializeDraftLyrics = () => {
+          const walk = node => {
+            if (node.nodeType === Node.TEXT_NODE) return node.nodeValue;
+            if (node.nodeType !== Node.ELEMENT_NODE) return '';
+            if (node.classList?.contains('draft-chord')) return `[${node.dataset.chordToken || node.textContent}]`;
+            if (node.tagName === 'BR') return '\n';
+            const inner=[...node.childNodes].map(walk).join('');
+            return ['DIV','P'].includes(node.tagName) ? inner + '\n' : inner;
+          };
+          return [...visualEditor.childNodes].map(walk).join('').replace(/\u00a0/g,' ');
+        };
+        const syncDraftToTextarea = () => { ta.value = serializeDraftLyrics(); ta.dispatchEvent(new Event('input',{bubbles:true})); };
+        renderDraftLyrics(ta.value);
+        songForm.addEventListener('submit', syncDraftToTextarea, true);
+        const placeDraftChord = (chord, range) => {
+          if (!range || !visualEditor.contains(range.startContainer)) {
+            range = document.createRange(); range.selectNodeContents(visualEditor); range.collapse(false);
+          }
+          range.deleteContents();
+          const chip = document.createElement('span');
+          chip.className = 'draft-chord'; chip.draggable = true;
+          chip.dataset.chordToken = chord.replace(/^\[|\]$/g,'');
+          chip.contentEditable = 'false'; chip.textContent = chip.dataset.chordToken;
+          range.insertNode(chip);
+          const spacer = document.createTextNode(' '); chip.after(spacer);
+          const sel = window.getSelection(); sel.removeAllRanges();
+          const caret = document.createRange(); caret.setStartAfter(spacer); caret.collapse(true); sel.addRange(caret);
+          syncDraftToTextarea();
+        };
+        const caretRangeAt = (x,y) => {
+          if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x,y);
+          const pos = document.caretPositionFromPoint?.(x,y);
+          if (pos) { const r=document.createRange(); r.setStart(pos.offsetNode,pos.offset); r.collapse(true); return r; }
+          return null;
+        };
+        visualEditor.addEventListener('input', syncDraftToTextarea);
+        visualEditor.addEventListener('dragover', ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = draggedPlacedChord ? 'move' : 'copy'; });
+        visualEditor.addEventListener('drop', ev => {
+          ev.preventDefault();
+          if (chordsValidated) { showToast('Desbloquea la revisión para mover acordes'); return; }
+          const range = caretRangeAt(ev.clientX,ev.clientY);
+          if (draggedPlacedChord && visualEditor.contains(draggedPlacedChord)) draggedPlacedChord.remove();
+          const chord = ev.dataTransfer.getData('text/plain') || draggedChord;
+          if (!/^\[[A-G](?:#|b)?(?:m|maj7|7|sus2|sus4|dim|aug)?(?:\/[A-G](?:#|b)?)?\]$/.test(chord)) return;
+          placeDraftChord(chord,range); draggedPlacedChord=null; draggedChord='';
+        });
+        visualEditor.addEventListener('dragstart', ev => {
+          const chip = ev.target.closest?.('.draft-chord'); if (!chip || chordsValidated) { ev.preventDefault(); return; }
+          draggedPlacedChord = chip; draggedChord = `[${chip.dataset.chordToken}]`;
+          ev.dataTransfer.setData('text/plain',draggedChord); ev.dataTransfer.effectAllowed='move';
+        });
+        visualEditor.addEventListener('click', ev => {
+          const chip=ev.target.closest?.('.draft-chord');
+          if (chip && !chordsValidated && ev.detail===2) { chip.remove(); syncDraftToTextarea(); }
+        });
         document.querySelectorAll('.chord-chip').forEach(btn => {
           btn.addEventListener('dragstart', ev => {
             const item = QUICK_CHORD_BTNS[parseInt(btn.dataset.qidx, 10)];
             draggedChord = item?.val || (item?.mod ? `[${item.mod}]` : '');
-            ev.dataTransfer.setData('text/plain', draggedChord);
-            ev.dataTransfer.effectAllowed = 'copy';
+            ev.dataTransfer.setData('text/plain', draggedChord); ev.dataTransfer.effectAllowed = 'copy';
           });
-        });
-        ta.addEventListener('dragover', ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; });
-        ta.addEventListener('drop', ev => {
-          ev.preventDefault();
-          const chord = ev.dataTransfer.getData('text/plain') || draggedChord;
-          if (!/^\[[A-G](?:#|b)?(?:m|maj7|7|sus2|sus4|dim|aug)?(?:\/[A-G](?:#|b)?)?\]$/.test(chord)) return;
-          const pos = typeof document.caretRangeFromPoint === 'function'
-            ? (() => { const r = document.caretRangeFromPoint(ev.clientX, ev.clientY); if (!r) return ta.selectionStart; const pre = ta.value.slice(0, ta.selectionStart); return ta.selectionStart + Math.max(0, r.startOffset); })()
-            : ta.selectionStart;
-          const start = Math.min(Math.max(0, pos), ta.value.length);
-          ta.value = ta.value.slice(0, start) + chord + ta.value.slice(start);
-          ta.focus(); ta.selectionStart = ta.selectionEnd = start + chord.length;
-          ta.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-        document.querySelectorAll('.chord-chip').forEach(btn => {
           btn.onclick = () => {
-            const item = QUICK_CHORD_BTNS[parseInt(btn.dataset.qidx, 10)];
-            const start = ta.selectionStart;
-            const end = ta.selectionEnd;
-
-            // Smart modifier insertion: [m] or [7] appends inside previous chord bracket if cursor is right after ']'
-            if (item.mod) {
-              const before = ta.value.slice(0, start);
-              if (before.endsWith(']')) {
-                ta.value = before.slice(0, -1) + item.mod + ']' + ta.value.slice(end);
-                ta.focus();
-                ta.selectionStart = ta.selectionEnd = start + item.mod.length;
-                return;
-              }
-              const ins = `[${item.mod}]`;
-              ta.value = ta.value.slice(0, start) + ins + ta.value.slice(end);
-              ta.focus();
-              ta.selectionStart = ta.selectionEnd = start + ins.length;
-              return;
-            }
-
-            insertChordAtSelection(ta, item.val);
-
+            if (chordsValidated) { showToast('Desbloquea la revisión para añadir acordes'); return; }
+            const item=QUICK_CHORD_BTNS[parseInt(btn.dataset.qidx,10)];
+            const chord=item?.val || (item?.mod ? `[${item.mod}]` : '');
+            const sel=window.getSelection();
+            let range=sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+            if (!range || !visualEditor.contains(range.startContainer)) { range=document.createRange(); range.selectNodeContents(visualEditor); range.collapse(false); }
+            placeDraftChord(chord,range); visualEditor.focus();
           };
+        });
+        const validationBar=document.createElement('div');
+        validationBar.className='editor-chord-validation-bar';
+        validationBar.innerHTML='<span class="editor-chord-validation-status">Acordes provisionales: puedes arrastrarlos para reubicarlos</span><button type="button" id="editor-validate-chords" class="btn btn-primary btn-sm">✓ Validar acordes</button>';
+        visualEditor.insertAdjacentElement('afterend',validationBar);
+        document.getElementById('editor-validate-chords').addEventListener('click',()=>{
+          chordsValidated=!chordsValidated;
+          visualEditor.querySelectorAll('.draft-chord').forEach(chip=>chip.classList.toggle('is-validated',chordsValidated));
+          document.getElementById('editor-validate-chords').textContent=chordsValidated?'↶ Reabrir edición':'✓ Validar acordes';
+          validationBar.querySelector('.editor-chord-validation-status').textContent=chordsValidated?'Acordes validados y fijados. Puedes reabrir la edición cuando lo necesites.':'Acordes provisionales: puedes arrastrarlos para reubicarlos';
+          showToast(chordsValidated?'Acordes validados':'Edición de acordes habilitada');
         });
 
         document.getElementById('song-form').onsubmit = async e => {
