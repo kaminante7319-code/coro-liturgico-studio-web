@@ -3980,8 +3980,6 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const moment = category?.nombre || 'Todos';
         return {
           id: row.app_id || String(row.id),
-          supabaseId: row.id,
-          supabaseAppId: row.app_id || null,
           title: row.titulo || 'Canto sin título',
           moment: moment,
           season: row.tiempo_liturgico || 'Ordinario',
@@ -4019,8 +4017,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       async function saveSongToSupabase(song) {
         if (!state.supabaseSession?.access_token) throw new Error('Inicia sesión como administrador.');
-        const category = state.supabaseCategories.find(c => String(c.nombre).toLowerCase() === String(song.moment || '').toLowerCase());
+        // categoria_id representa el tiempo litúrgico (p. ej. Adviento), no el momento de la misa.
+        const category = state.supabaseCategories.find(c => String(c.nombre).trim().toLowerCase() === String(song.season || '').trim().toLowerCase())
+          || state.supabaseCategories.find(c => String(c.nombre).trim().toLowerCase() === String(song.moment || '').trim().toLowerCase());
+        if (!category) throw new Error('No se encontró la categoría/tiempo litúrgico «' + (song.season || 'sin indicar') + '» en Supabase.');
         const payload = {
+          app_id: String(song.id),
           titulo: song.title,
           letra: song.lyrics || '',
           autor: song.author || '',
@@ -4034,34 +4036,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           audio_url: (song.audioUrl || '').startsWith('http') ? song.audioUrl : '',
           audio_name: song.audioName || null
         };
-        let savedRows;
-        if (song.supabaseId != null) {
-          // Update the exact existing database row; do not rely on app_id being populated.
-          savedRows = await supabaseRequest('/rest/v1/cantos?id=eq.' + encodeURIComponent(String(song.supabaseId)) + '&select=id,app_id,titulo,letra,cifrado', {
-            method: 'PATCH',
-            headers: { Prefer: 'return=representation' },
-            body: JSON.stringify(payload)
-          }, true);
-          if (!Array.isArray(savedRows) || savedRows.length !== 1) {
-            throw new Error('Supabase no confirmó la actualización del registro existente (ID ' + song.supabaseId + ').');
-          }
-          const saved = savedRows[0];
-          if (String(saved.titulo || '') !== String(song.title || '') || String(saved.cifrado || saved.letra || '') !== String(song.lyrics || '')) {
-            throw new Error('Supabase respondió, pero la verificación de título o letra no coincide.');
-          }
-        } else {
-          payload.app_id = String(song.id);
-          savedRows = await supabaseRequest('/rest/v1/cantos?on_conflict=app_id&select=id,app_id,titulo,letra,cifrado', {
-            method: 'POST',
-            headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-            body: JSON.stringify(payload)
-          }, true);
-          if (!Array.isArray(savedRows) || savedRows.length !== 1) {
-            throw new Error('Supabase no devolvió confirmación verificable del canto nuevo.');
-          }
-          song.supabaseId = savedRows[0].id;
-          song.supabaseAppId = savedRows[0].app_id || null;
-        }
+        await supabaseRequest('/rest/v1/cantos?on_conflict=app_id', {
+          method: 'POST',
+          headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(payload)
+        }, true);
       }
 
       async function deleteSongFromSupabase(songId) {
@@ -6095,7 +6074,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const rows = items.map((s,i)=>{
           const existing = existingByTitle.get(normalizeBulkTitle(s.title));
           const action = existing
-            ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><label for="bulk-action-${i}" style="font-size:.78rem;color:var(--text-muted)">Si ya existe:</label><select id="bulk-action-${i}" class="input" style="max-width:230px;padding:7px;"><option value="keep">Conservar existente</option><option value="replace">Reemplazar existente</option><option value="new">Importar como nuevo</option></select></div><small style="color:var(--text-muted)">Registro actual: ${esc(existing.title)} · ${esc(existing.author || 'Autor no indicado')} · ${existing.published ? 'Publicado' : 'No publicado'}</small>`
+            ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><label for="bulk-action-${i}" style="font-size:.78rem;color:var(--text-muted)">Si ya existe:</label><select id="bulk-action-${i}" class="input" style="max-width:230px;padding:7px;"><option value="keep">Conservar existente</option><option value="replace">Reemplazar existente</option><option value="new" selected>Importar como nuevo</option></select></div><small style="color:var(--text-muted)">Registro actual: ${esc(existing.title)} · ${esc(existing.author || 'Autor no indicado')} · ${existing.published ? 'Publicado' : 'No publicado'}</small>`
             : `<span style="font-size:.72rem;color:#15803d">Nuevo</span>`;
           return `<div style="padding:9px;border:1px solid var(--border);border-radius:9px;margin-bottom:7px;">
             <div style="display:flex;justify-content:space-between;gap:8px;"><strong>${i+1}. ${esc(s.title)}</strong>${action}</div>
@@ -6106,57 +6085,65 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         openModal(`<div class="row-between"><h3 class="section-title">Vista previa de importación</h3><button id="bulk-close" class="mini-icon-btn" type="button">&times;</button></div>
           <p class="section-desc">${esc(filename)} · ${items.length} detectados · ${freshCount} nuevos · ${duplicateCount} duplicados</p>
           <div style="max-height:48vh;overflow:auto;">${rows}</div>
-          <p style="font-size:.76rem;color:var(--text-muted)">Los cantos nuevos se importan sin publicar. Al reemplazar se conserva el ID, el estado de publicación y los datos de audio del canto existente. Ningún reemplazo se realiza sin tu selección.</p>
+          <p style="font-size:.76rem;color:var(--text-muted)">Los cantos nuevos se importan sin publicar. Para guardar en Supabase debes tener una sesión iniciada con una cuenta autorizada. Al reemplazar se conserva el ID, el estado de publicación y los datos de audio del canto existente.</p>
+          <p id="bulk-import-status" role="status" aria-live="polite" style="display:none;margin:8px 0;font-size:.82rem;font-weight:700;"></p>
           <div class="row" style="justify-content:flex-end;gap:8px;"><button id="bulk-cancel" class="btn btn-secondary btn-sm" type="button">Cancelar</button><button id="bulk-confirm" class="btn btn-primary btn-sm" type="button">Procesar selección</button></div>`);
         document.getElementById('bulk-close').onclick=closeModal;
         document.getElementById('bulk-cancel').onclick=closeModal;
         document.getElementById('bulk-confirm').onclick=async()=>{
           if (!requireAdmin()) return;
           const btn=document.getElementById('bulk-confirm');
-          btn.disabled=true; btn.textContent='Procesando…';
-          let added=0, replaced=0, kept=0, cloudOK=0, cloudFail=0, localOK=false, localError='';
-          const outcomes=[];
-          for (let i=0;i<items.length;i++) {
-            const item=items[i];
-            const key=normalizeBulkTitle(item.title);
-            const existing=state.songs.find(old=>normalizeBulkTitle(old.title)===key);
-            const choice=existing ? (document.getElementById(`bulk-action-${i}`)?.value || 'keep') : 'new';
-            if (existing && choice==='keep') { kept++; outcomes.push({title:item.title,status:'Conservado',detail:'No se modificó'}); continue; }
-            let song;
-            if (existing && choice==='replace') {
-              song={...existing, title:item.title, author:item.author||existing.author||'', moment:item.moment||existing.moment, season:item.season||existing.season, key:item.key||existing.key, bpm:Number(item.bpm)||existing.bpm||80, notes:item.notes||existing.notes||'', lyrics:item.lyrics, id:existing.id, published:existing.published, audioUrl:existing.audioUrl||'', audioName:existing.audioName||''};
-              const index=state.songs.findIndex(old=>old.id===existing.id);
-              if (index>=0) state.songs[index]=song;
-              replaced++;
-            } else {
-              let title=item.title;
-              if (existing && choice==='new') {
-                let n=2;
-                while (state.songs.some(old=>normalizeBulkTitle(old.title)===normalizeBulkTitle(`${item.title} (versión ${n})`))) n++;
-                title=`${item.title} (versión ${n})`;
-              }
-              song={id:'song-'+Date.now()+'-'+Math.random().toString(36).slice(2,8), title, author:item.author||'', moment:item.moment||'Entrada', season:item.season||'Ordinario', key:item.key||'C', bpm:Number(item.bpm)||80, notes:item.notes||'', lyrics:item.lyrics, audioUrl:'', audioName:'', published:false};
-              state.songs.unshift(song); added++;
-            }
-            try { await saveSongToSupabase(song); cloudOK++; outcomes.push({title:item.title,status:'Verificado en Supabase',detail:'Registro actualizado y letra comprobada en la respuesta de la base de datos'}); }
-            catch(err) { cloudFail++; outcomes.push({title:item.title,status:'Pendiente en Supabase',detail:err?.message||'Error de sincronización'}); console.warn('Importación nube pendiente:',song.title,err); }
+          const status=document.getElementById('bulk-import-status');
+          const showStatus=(message,isError=false)=>{
+            status.style.display='block';
+            status.style.color=isError?'var(--danger)':'var(--success)';
+            status.textContent=message;
+          };
+          if (!state.supabaseSession?.access_token) {
+            showStatus('No hay sesión de Supabase activa. Inicia sesión con tu cuenta autorizada y vuelve a procesar el archivo. No se guardó ningún canto.',true);
+            return;
           }
+          btn.disabled=true; btn.textContent='Guardando en Supabase…';
+          let added=0, replaced=0, kept=0;
           try {
+            // Guardar primero en Supabase. Solo actualizar el almacenamiento local tras confirmar cada operación.
+            for (let i=0;i<items.length;i++) {
+              const item=items[i];
+              const key=normalizeBulkTitle(item.title);
+              const existing=state.songs.find(old=>normalizeBulkTitle(old.title)===key);
+              const choice=existing ? (document.getElementById(`bulk-action-${i}`)?.value || 'new') : 'new';
+              if (existing && choice==='keep') { kept++; continue; }
+              let song;
+              if (existing && choice==='replace') {
+                song={...existing,title:item.title,author:item.author||existing.author||'',moment:item.moment||existing.moment,season:item.season||existing.season,key:item.key||existing.key,bpm:Number(item.bpm)||existing.bpm||80,notes:item.notes||existing.notes||'',lyrics:item.lyrics,id:existing.id,published:existing.published,audioUrl:existing.audioUrl||'',audioName:existing.audioName||''};
+              } else {
+                let title=item.title;
+                if (existing && choice==='new') {
+                  let n=2;
+                  while (state.songs.some(old=>normalizeBulkTitle(old.title)===normalizeBulkTitle(`${item.title} (versión ${n})`))) n++;
+                  title=`${item.title} (versión ${n})`;
+                }
+                song={id:'song-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),title,author:item.author||'',moment:item.moment||'Entrada',season:item.season||'Ordinario',key:item.key||'C',bpm:Number(item.bpm)||80,notes:item.notes||'',lyrics:item.lyrics,audioUrl:'',audioName:'',published:false};
+              }
+              await saveSongToSupabase(song);
+              if (existing && choice==='replace') {
+                const index=state.songs.findIndex(old=>old.id===existing.id);
+                if(index>=0) state.songs[index]=song;
+                replaced++;
+              } else { state.songs.unshift(song); added++; }
+              showStatus(`Guardados ${added+replaced} de ${items.length-kept} cantos en Supabase…`);
+            }
             await idbSet('songs',state.songs);
             try { localStorage.setItem(STORAGE.SONGS,JSON.stringify(stripHeavyAudioForLocalStorage(state.songs))); } catch(_){}
-            localOK=true;
-          } catch(err) { localError=err?.message||String(err); console.error('Persistencia local de importación:',err); }
-          closeModal(); renderSongsList(); renderListasView(); updateListasNavBadge(); if(state.activeTab==='visor') renderVisor();
-          const outcomeRows=outcomes.map(o=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);"><strong>${esc(o.title)}</strong><div style="font-size:.78rem;color:var(--text-muted);">${esc(o.status)}${o.detail?' · '+esc(o.detail):''}</div></div>`).join('');
-          openModal(`<div class="row-between"><h3 class="section-title">Resultado de importación</h3><button id="bulk-result-close" class="mini-icon-btn" type="button">&times;</button></div>
-            <p class="section-desc">${added} nuevos · ${replaced} reemplazos locales · ${kept} conservados</p>
-            <p style="font-size:.82rem;">Supabase: <strong>${cloudOK} guardados verificados</strong> · <strong>${cloudFail} pendientes</strong></p>
-            <p style="font-size:.82rem;">Guardado local: <strong>${localOK?'confirmado':'no confirmado'}</strong>${localError?' · '+esc(localError):''}</p>
-            <div style="max-height:48vh;overflow:auto;">${outcomeRows}</div>
-            <p style="font-size:.74rem;color:var(--text-muted);margin-top:10px;">“Verificado” significa que Supabase devolvió el registro actualizado y se comprobó su título y letra. Si hay pendientes, no repitas el lote: revisa primero el error indicado.</p>
-            <div class="row" style="justify-content:flex-end;"><button id="bulk-result-ok" class="btn btn-primary btn-sm" type="button">Cerrar</button></div>`);
-          document.getElementById('bulk-result-close').onclick=closeModal;
-          document.getElementById('bulk-result-ok').onclick=closeModal;
+            closeModal();
+            renderSongsList(); renderListasView(); updateListasNavBadge();
+            if(state.activeTab==='visor') renderVisor();
+            showToast(`Importación confirmada: ${added} nuevos · ${replaced} reemplazados · ${kept} conservados. Todos los cambios procesados se guardaron en Supabase.`);
+          } catch(err) {
+            console.error('Error al importar cantos:',err);
+            showStatus(`Error al guardar en Supabase: ${err?.message || 'Error desconocido'}. Se detuvo el proceso; revisa los cantos guardados antes de reintentar.`,true);
+            btn.disabled=false; btn.textContent='Reintentar proceso';
+          }
         };
       }
 
