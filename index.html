@@ -2622,6 +2622,9 @@ body.home-active #view-inicio .home-brand-band span {
 #modal-card.editor-song-workspace .chord-quick-bar{position:static;width:100%;max-height:42vh;overflow:auto;display:flex;align-content:flex-start;align-items:center;flex-wrap:wrap;gap:6px;padding:2px;border:0;border-radius:0;background:transparent;box-shadow:none}
 #modal-card.editor-song-workspace .chord-quick-bar:before{display:none}
 #modal-card.editor-song-workspace .chord-chip{min-width:40px;padding:6px 8px;background:#f4efdf;color:#10233d;border:1px solid #c9a45f;font-weight:800}
+#modal-card.editor-song-workspace .chord-chip,#modal-card.editor-song-workspace .draft-chord{touch-action:none;-webkit-user-select:none;user-select:none}
+#modal-card.editor-song-workspace .sf-chord-drag-ghost{position:fixed;z-index:99999;pointer-events:none;padding:7px 11px;border:1px solid #c9a45f;border-radius:8px;background:#10233d;color:#fffaf0;font-weight:900;box-shadow:0 8px 22px rgba(0,0,0,.28);transform:translate(-50%,-130%)}
+#modal-card.editor-song-workspace #sf-lyrics-visual.is-drop-target{outline:3px dashed #c9a45f;outline-offset:2px}
 #modal-card.editor-song-workspace #sf-lyrics{min-height:48vh;background:#fffdf7;color:#17253a;font-size:1rem;line-height:1.8}
 #modal-card.editor-song-workspace .editor-side-tools{position:static;width:100%;display:flex;flex-direction:column;gap:6px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
 #modal-card.editor-song-workspace .editor-side-tools strong{display:none}
@@ -5514,12 +5517,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           paletteMinimizeButton.setAttribute('aria-expanded', String(!collapsed));
         };
         paletteMinimizeButton.addEventListener('click', toggleChordPaletteCollapsed);
+        // Arrastre compatible con mouse, lápiz y pantalla táctil.
+        // Obtener el encabezado antes de registrar eventos evita acceder a la variable
+        // antes de su inicialización (Temporal Dead Zone), lo que detenía el resto del editor.
+        const paletteDragHandle = floatingChordPalette.querySelector('.editor-floating-chord-head');
         // Al tocar el encabezado contraído, vuelve a desplegarse; el botón conserva su acción propia.
-        paletteDragHandle?.addEventListener('click', ev => {
+        paletteDragHandle.addEventListener('click', ev => {
           if (floatingChordPalette.classList.contains('is-minimized') && !ev.target.closest('button')) toggleChordPaletteCollapsed();
         });
-        // Arrastre compatible con mouse, lápiz y pantalla táctil.
-        const paletteDragHandle = floatingChordPalette.querySelector('.editor-floating-chord-head');
         let paletteDrag = null;
         paletteDragHandle.addEventListener('pointerdown', ev => {
           if (ev.target.closest('button')) return;
@@ -5555,11 +5560,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         // Cierra los menús al tocar fuera de la barra o del panel desplegado.
         // Al tocar otro menú, se cierra el anterior y permanece abierto el nuevo.
         const closeEditorDropdownsOutside = event => {
-          if (!dropdownBar.contains(event.target)) {
-            dropdownBar.querySelectorAll('details[open]').forEach(menu => { menu.open = false; });
-          }
+          dropdownBar.querySelectorAll('details[open]').forEach(menu => {
+            if (!menu.contains(event.target)) menu.open = false;
+          });
         };
-        document.addEventListener('pointerdown', closeEditorDropdownsOutside);
+        document.addEventListener('pointerdown', closeEditorDropdownsOutside, true);
         dropdownBar.querySelectorAll('details').forEach(menu => {
           menu.addEventListener('toggle', () => {
             if (menu.open) dropdownBar.querySelectorAll('details').forEach(other => { if (other !== menu) other.open = false; });
@@ -5759,6 +5764,86 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             placeDraftChord(chord,range); visualEditor.focus();
           };
         });
+        // Arrastre táctil real (Android/tablet): permite tomar cada acorde por separado,
+        // llevarlo a una posición precisa del texto y soltarlo allí.
+        // En escritorio se conserva también el arrastre HTML5 existente.
+        let touchChordDrag = null;
+        let suppressChordClickUntil = 0;
+        const makeChordDragGhost = chord => {
+          const ghost = document.createElement('div');
+          ghost.className = 'sf-chord-drag-ghost';
+          ghost.textContent = chord.replace(/^\\[|\\]$/g,'');
+          document.body.appendChild(ghost);
+          return ghost;
+        };
+        const moveChordGhost = (ghost, x, y) => {
+          ghost.style.left = x + 'px';
+          ghost.style.top = y + 'px';
+        };
+        const startChordPointerDrag = (ev, chord, placedChip) => {
+          if (ev.pointerType === 'mouse' || chordsValidated) return;
+          if (!chord) return;
+          touchChordDrag = {
+            pointerId: ev.pointerId, startX: ev.clientX, startY: ev.clientY,
+            x: ev.clientX, y: ev.clientY, chord, placedChip, moved: false, ghost: null
+          };
+        };
+        document.querySelectorAll('.chord-chip').forEach(btn => {
+          btn.addEventListener('pointerdown', ev => {
+            const item = QUICK_CHORD_BTNS[parseInt(btn.dataset.qidx, 10)];
+            const chord = item?.val || (item?.mod ? `[${item.mod}]` : '');
+            startChordPointerDrag(ev, chord, null);
+          });
+        });
+        visualEditor.addEventListener('pointerdown', ev => {
+          const chip = ev.target.closest?.('.draft-chord');
+          if (!chip) return;
+          startChordPointerDrag(ev, `[${chip.dataset.chordToken || chip.textContent}]`, chip);
+        });
+        document.addEventListener('pointermove', ev => {
+          const drag = touchChordDrag;
+          if (!drag || ev.pointerId !== drag.pointerId) return;
+          drag.x = ev.clientX; drag.y = ev.clientY;
+          if (!drag.moved && Math.hypot(drag.x-drag.startX, drag.y-drag.startY) > 7) {
+            drag.moved = true;
+            drag.ghost = makeChordDragGhost(drag.chord);
+            visualEditor.classList.add('is-drop-target');
+          }
+          if (drag.moved) {
+            ev.preventDefault();
+            moveChordGhost(drag.ghost, drag.x, drag.y);
+          }
+        }, {passive:false});
+        document.addEventListener('pointerup', ev => {
+          const drag = touchChordDrag;
+          if (!drag || ev.pointerId !== drag.pointerId) return;
+          touchChordDrag = null;
+          if (drag.ghost) drag.ghost.remove();
+          visualEditor.classList.remove('is-drop-target');
+          if (!drag.moved) return; // Un toque normal conserva la inserción por botón.
+          suppressChordClickUntil = Date.now() + 500;
+          const target = document.elementFromPoint(ev.clientX, ev.clientY);
+          if (target && (visualEditor === target || visualEditor.contains(target))) {
+            const range = caretRangeAt(ev.clientX, ev.clientY);
+            if (drag.placedChip && drag.placedChip.isConnected) drag.placedChip.remove();
+            placeDraftChord(drag.chord, range);
+            visualEditor.focus({preventScroll:true});
+          } else if (drag.placedChip && drag.placedChip.isConnected) {
+            // Si se suelta fuera del texto, el acorde vuelve a su sitio original.
+            showToast('Suelta el acorde sobre la letra para colocarlo');
+          }
+        });
+        document.addEventListener('pointercancel', () => {
+          if (touchChordDrag?.ghost) touchChordDrag.ghost.remove();
+          touchChordDrag = null;
+          visualEditor.classList.remove('is-drop-target');
+        });
+        document.addEventListener('click', ev => {
+          if (Date.now() < suppressChordClickUntil && (ev.target.closest?.('.chord-chip') || ev.target.closest?.('.draft-chord'))) {
+            ev.preventDefault(); ev.stopPropagation();
+          }
+        }, true);
+
         const validationBar=document.createElement('div');
         validationBar.className='editor-chord-validation-bar';
         validationBar.innerHTML='<span class="editor-chord-validation-status">Acordes provisionales: puedes arrastrarlos para reubicarlos</span><button type="button" id="editor-validate-chords" class="btn btn-primary btn-sm">✓ Validar acordes</button>';
