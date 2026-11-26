@@ -3980,6 +3980,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const moment = category?.nombre || 'Todos';
         return {
           id: row.app_id || String(row.id),
+          dbId: row.id,
+          appId: row.app_id || null,
           title: row.titulo || 'Canto sin título',
           moment: moment,
           season: row.tiempo_liturgico || 'Ordinario',
@@ -5135,7 +5137,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
         const songNumbers = new Map(orderedSongs.map((song, index) => [song.id, index + 1]));
 
-        const filtered = orderedSongs.filter(s => {
+        const filteredByControls = orderedSongs.filter(s => {
           const mOk = state.filterMoment === 'Todos' || s.moment === state.filterMoment;
           const tOk = state.filterSeason === 'Todos' || s.season === state.filterSeason;
           const qOk = !q ||
@@ -5146,14 +5148,19 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             (s.season || '').toLowerCase().includes(q);
           return mOk && tOk && qOk;
         });
+        // En Modo Administrador, los pendientes siempre aparecen aunque haya filtros activos.
+        const allPending = state.isAdmin ? orderedSongs.filter(s => s.published !== true) : [];
+        const filtered = state.isAdmin
+          ? [...allPending, ...filteredByControls.filter(s => s.published === true)]
+          : filteredByControls;
 
         document.getElementById('songs-count-txt').textContent =
           `${accessibleSongs.length} ${accessibleSongs.length === 1 ? 'canto en repertorio' : 'cantos en repertorio'}`;
 
-        const pendingFiltered = filtered.filter(song => song.published !== true);
-        const releaseToolbar = state.isAdmin && pendingFiltered.length ? `
-          <div class="admin-release-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px;margin:10px 0;border:1px solid var(--border);border-radius:12px;">
-            <strong style="font-size:.9rem;">Liberar cantos pendientes (${pendingFiltered.length})</strong>
+        const pendingFiltered = allPending;
+        const releaseToolbar = state.isAdmin ? `
+          <div class="admin-release-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px;margin:10px 0;border:2px solid var(--primary);border-radius:12px;background:var(--surface-2);">
+            <strong style="font-size:.9rem;">🚀 Cantos pendientes de publicación (${pendingFiltered.length})</strong>
             <label style="display:flex;gap:7px;align-items:center;font-size:.85rem;"><input type="checkbox" id="release-select-all"> Seleccionar bloque</label>
             <button type="button" class="btn btn-primary" id="release-selected-btn">Liberar seleccionados</button>
           </div>` : '';
@@ -5235,8 +5242,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const failures = [];
         for (const song of pending) {
           try {
-            const appId = encodeURIComponent(String(song.id));
-            await supabaseRequest(`/rest/v1/cantos?app_id=eq.${appId}`, {
+            const rowFilter = song.dbId != null
+              ? `id=eq.${encodeURIComponent(String(song.dbId))}`
+              : `app_id=eq.${encodeURIComponent(String(song.appId || song.id))}`;
+            await supabaseRequest(`/rest/v1/cantos?${rowFilter}`, {
               method: 'PATCH',
               headers: { Prefer: 'return=minimal' },
               body: JSON.stringify({ publicado: true })
