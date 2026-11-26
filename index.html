@@ -2828,17 +2828,6 @@ body.home-active #view-inicio .home-brand-band span {
         </div>
       </div>
 
-      <section id="pending-release-panel" class="card" style="display:none;margin:12px 0;border:2px solid var(--primary);padding:14px;">
-        <div class="row-between" style="gap:10px;flex-wrap:wrap;">
-          <div>
-            <h3 style="margin:0;font-size:1rem;">🚀 Cantos pendientes de publicación</h3>
-            <p id="pending-release-count" style="margin:4px 0 0;color:var(--text-muted);font-size:.8rem;"></p>
-          </div>
-          <button type="button" id="pending-release-all" class="btn btn-secondary btn-sm">Seleccionar todos</button>
-        </div>
-        <div id="pending-release-items" style="display:flex;flex-direction:column;gap:8px;margin:12px 0;"></div>
-        <button type="button" id="pending-release-submit" class="btn btn-primary" style="width:100%;">Liberar seleccionados</button>
-      </section>
       <div id="songs-list" style="display:flex; flex-direction:column; gap:10px;"></div>
     </section>
 
@@ -3564,6 +3553,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       // ===================================================================
       const state = {
         isAdmin: false,
+        isCoAdmin: false,
         isMember: false,
         userRole: '',
         userEmail: '',
@@ -3991,8 +3981,6 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const moment = category?.nombre || 'Todos';
         return {
           id: row.app_id || String(row.id),
-          dbId: row.id,
-          appId: row.app_id || null,
           title: row.titulo || 'Canto sin título',
           moment: moment,
           season: row.tiempo_liturgico || 'Ordinario',
@@ -4152,7 +4140,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
         const members = await supabaseRequest('/rest/v1/authorized_users?select=user_id,active&user_id=eq.' + userId + '&active=eq.true', {}, true);
         if (members && members.length) {
-          state.userRole = 'member';
+          const coadmins = await supabaseRequest('/rest/v1/coadmin_users?select=user_id&user_id=eq.' + userId + '&active=eq.true', {}, true);
+          state.userRole = coadmins && coadmins.length ? 'coadmin' : 'member';
           state.userEmail = session.user.email || email;
           return session;
         }
@@ -4164,16 +4153,25 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       // 4. ADMIN PERMISSIONS (PROTECTS MASTER CANTORAL ONLY; LISTS ALWAYS OPEN)
       // ===================================================================
+      function canManageSongs() { return Boolean(state.isAdmin || state.isCoAdmin); }
+      function requireSongManager() {
+        if (canManageSongs()) return true;
+        showToast('Se requiere permiso de gestión del repertorio.');
+        return false;
+      }
       function requireAdmin() {
         if (state.isAdmin) return true;
-        showToast('Se requiere Modo Administrador (🔒)');
+        showToast('Esta función está reservada al Administrador principal.');
         return false;
       }
 
       function setAdminMode(unlocked) {
-        state.isAdmin = Boolean(unlocked);
-        state.isMember = Boolean(!unlocked && state.supabaseSession && state.userRole === 'member');
-        if (!unlocked && !state.isMember) { state.supabaseSession = null; state.userRole = ''; state.userEmail = ''; }
+        state.isAdmin = Boolean(unlocked && state.userRole === 'admin');
+        state.isCoAdmin = Boolean(state.supabaseSession && state.userRole === 'coadmin');
+        state.isMember = Boolean(state.supabaseSession && state.userRole === 'member');
+        if (!state.isAdmin && !state.isCoAdmin && !state.isMember) {
+          state.supabaseSession = null; state.userRole = ''; state.userEmail = '';
+        }
         syncAdminUI();
         renderSongsList();
         renderVisor();
@@ -4183,37 +4181,50 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const roleBtn = document.getElementById('btn-admin-role');
         const roleText = document.getElementById('role-btn-text');
         const brandSub = document.getElementById('brand-role-sub');
-
+        const manager = canManageSongs();
         if (state.isAdmin) {
-          roleText.textContent = '🔓 Admin';
-          roleBtn.classList.add('admin-unlocked');
-          roleBtn.title = 'Abrir Panel de Administrador';
-          brandSub.textContent = 'Modo Administrador';
+          roleText.textContent = '🔓 Admin'; roleBtn.classList.add('admin-unlocked');
+          roleBtn.title = 'Abrir Panel de Administrador'; brandSub.textContent = 'Modo Administrador';
+        } else if (state.isCoAdmin) {
+          roleText.textContent = '🛠 Coadmin'; roleBtn.classList.add('admin-unlocked');
+          roleBtn.title = 'Abrir herramientas de repertorio'; brandSub.textContent = 'Modo Coadministrador';
         } else if (state.isMember) {
-          roleText.textContent = '👥 Integrante';
-          roleBtn.classList.remove('admin-unlocked');
-          roleBtn.title = 'Cerrar sesión de integrante';
-          brandSub.textContent = 'Acceso de Integrante';
+          roleText.textContent = '👥 Integrante'; roleBtn.classList.remove('admin-unlocked');
+          roleBtn.title = 'Cerrar sesión de integrante'; brandSub.textContent = 'Acceso de Integrante';
         } else {
-          roleText.textContent = '🔒 Coro';
-          roleBtn.classList.remove('admin-unlocked');
-          roleBtn.title = 'Ingresar con cuenta autorizada';
-          brandSub.textContent = 'Acceso privado';
+          roleText.textContent = '🔒 Coro'; roleBtn.classList.remove('admin-unlocked');
+          roleBtn.title = 'Ingresar con cuenta autorizada'; brandSub.textContent = 'Acceso privado';
         }
-
-        // Editor de cantos: solo visible en Modo Administrador
         const editorEntry = document.getElementById('admin-song-editor-entry');
-        if (editorEntry) editorEntry.classList.toggle('hidden', !state.isAdmin);
-
-        // Cantoral Admin controls
-        document.getElementById('cantoral-admin-banner').classList.toggle('hidden', !state.isAdmin);
-        document.getElementById('cantoral-coro-notice').classList.toggle('hidden', state.isAdmin);
-        document.getElementById('btn-new-song').classList.toggle('hidden', !state.isAdmin);
+        if (editorEntry) editorEntry.classList.toggle('hidden', !manager);
+        document.getElementById('cantoral-admin-banner').classList.toggle('hidden', !manager);
+        document.getElementById('cantoral-coro-notice').classList.toggle('hidden', manager);
+        document.getElementById('btn-new-song').classList.toggle('hidden', !manager);
         document.getElementById('cantoral-backup-bar').classList.toggle('hidden', !state.isAdmin);
+        document.getElementById('btn-visor-edit').classList.toggle('hidden', !manager);
+        document.getElementById('btn-visor-del').classList.toggle('hidden', !manager);
+      }
 
-        // Visor Admin edit/delete buttons
-        document.getElementById('btn-visor-edit').classList.toggle('hidden', !state.isAdmin);
-        document.getElementById('btn-visor-del').classList.toggle('hidden', !state.isAdmin);
+      function openCoAdminPanelModal() {
+        if (!state.isCoAdmin) { showToast('Permiso de coadministrador no válido.'); return; }
+        openModal(`
+          <div class="row-between"><div><h3 class="section-title">Panel de Coadministrador</h3><p class="section-desc">Herramientas limitadas a la gestión del repertorio</p></div><button id="coadm-close" class="mini-icon-btn" type="button">&times;</button></div>
+          <div class="grid-2"><div class="admin-stat-box"><div class="admin-stat-num">${state.songs.length}</div><div class="admin-stat-lbl">Cantos en repertorio</div></div><div class="admin-stat-box"><div class="admin-stat-num">${state.songs.filter(x=>!x.published).length}</div><div class="admin-stat-lbl">Pendientes de publicar</div></div></div>
+          <div class="divider"></div>
+          <section style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"><strong>🎼 Editor de cantos</strong><p class="section-desc">Crear, importar, editar y publicar cantos.</p><button id="coadm-open-editor" type="button" class="btn btn-primary">Abrir editor de cantos</button></section>
+          <div class="divider"></div>
+          <section style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:14px;"><strong>📚 Importación masiva</strong><label class="btn btn-secondary btn-sm" style="cursor:pointer;text-align:center;">Seleccionar TXT / CSV / JSON<input id="coadm-bulk-file" type="file" accept=".txt,.csv,.json,text/plain,text/csv,application/json" class="hidden" /></label></section>
+          <div class="divider"></div><button id="coadm-lock" type="button" class="btn btn-primary" style="width:100%;">Cerrar sesión</button>
+        `);
+        document.getElementById('coadm-close').onclick=closeModal;
+        document.getElementById('coadm-open-editor').onclick=()=>{closeModal();openSongFormModal(null);};
+        document.getElementById('coadm-bulk-file').addEventListener('change',async ev=>{const file=ev.target.files?.[0];ev.target.value='';if(!file||!requireSongManager())return;try{const items=await parseBulkSongFile(file);if(!items.length)throw new Error('No se detectaron cantos.');openBulkImportPreview(items,file.name);}catch(err){showToast(err.message||'No se pudo leer el archivo');}});
+        document.getElementById('coadm-lock').onclick=()=>{closeModal();logoutChoirSession();};
+      }
+
+      function logoutChoirSession() {
+        state.supabaseSession=null; state.isAdmin=false; state.isCoAdmin=false; state.isMember=false; state.userRole=''; state.userEmail='';
+        state.songs=[]; setAdminMode(false); renderSongsList(); renderVisor(); showToast('Sesión cerrada');
       }
 
       function openAdminLoginModal() {
@@ -4258,8 +4269,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             );
             closeModal();
             setAdminMode(state.userRole === 'admin');
-            await loadSupabaseSongs(state.userRole === 'admin');
-            showToast(state.userRole === 'admin' ? 'Sesión de administrador iniciada' : 'Bienvenido al coro');
+            await loadSupabaseSongs(state.userRole === 'admin' || state.userRole === 'coadmin');
+            showToast(state.userRole === 'admin' ? 'Sesión de administrador iniciada' : state.userRole === 'coadmin' ? 'Sesión de coadministrador iniciada' : 'Bienvenido al coro');
           } catch (error) {
             errEl.textContent = error.message || 'No fue posible iniciar sesión.';
             errEl.classList.remove('hidden');
@@ -4305,6 +4316,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         host.innerHTML = '';
         try {
           const rows = await supabaseRequest('/rest/v1/authorized_users?select=user_id,email,active&order=email.asc', {}, true);
+          const coadminRows = await supabaseRequest('/rest/v1/coadmin_users?select=user_id,active', {}, true);
+          const coadminMap = new Map((coadminRows || []).map(item => [item.user_id, Boolean(item.active)]));
           if (!rows || !rows.length) {
             status.textContent = 'Todavía no hay integrantes registrados.';
             return;
@@ -4324,6 +4337,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
                 <button type="button" class="btn btn-secondary btn-sm" data-member-resend="${esc(row.email || '')}">
                   Reenviar acceso
                 </button>
+                ${row.active ? `<button type="button" class="btn ${coadminMap.get(row.user_id) ? 'btn-danger' : 'btn-soft'} btn-sm" data-coadmin-id="${esc(row.user_id)}" data-coadmin-active="${coadminMap.get(row.user_id) ? 'true' : 'false'}">${coadminMap.get(row.user_id) ? 'Revocar coadmin' : 'Hacer coadministrador'}</button>` : ''}
               </div>
             </div>`).join('');
           host.querySelectorAll('[data-member-id]').forEach(button => {
@@ -4381,6 +4395,39 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               }
             };
           });
+          host.querySelectorAll('[data-coadmin-id]').forEach(button => {
+            button.onclick = async () => {
+              if (!state.isAdmin) return;
+              const id = button.dataset.coadminId;
+              const wasActive = button.dataset.coadminActive === 'true';
+              button.disabled = true;
+              try {
+                let result;
+                if (wasActive) {
+                  result = await supabaseRequest('/rest/v1/coadmin_users?user_id=eq.' + encodeURIComponent(id), {
+                    method: 'PATCH', headers: { 'Prefer': 'return=representation' }, body: JSON.stringify({ active: false })
+                  }, true);
+                } else if (coadminMap.has(id)) {
+                  result = await supabaseRequest('/rest/v1/coadmin_users?user_id=eq.' + encodeURIComponent(id), {
+                    method: 'PATCH', headers: { 'Prefer': 'return=representation' }, body: JSON.stringify({ active: true })
+                  }, true);
+                } else {
+                  result = await supabaseRequest('/rest/v1/coadmin_users', {
+                    method: 'POST', headers: { 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ user_id: id, active: true, created_by: state.supabaseSession.user.id })
+                  }, true);
+                }
+                if (!Array.isArray(result) || result.length !== 1 || result[0].active !== !wasActive) {
+                  throw new Error('Supabase no confirmó el cambio de permiso.');
+                }
+                showToast(wasActive ? 'Permiso de coadministrador revocado' : 'Coadministrador asignado');
+                await loadAuthorizedMembers();
+              } catch (error) {
+                button.disabled = false;
+                showToast('No se pudo cambiar el permiso: ' + (error.message || 'error'));
+              }
+            };
+          });
         } catch (error) {
           status.textContent = 'No se pudo cargar la lista: ' + (error.message || 'Error de conexión');
         }
@@ -4425,7 +4472,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             <div class="row-between" style="gap:8px;">
               <div>
                 <span class="field-label" style="margin:0;">👥 Gestión de integrantes</span>
-                <p class="section-desc" style="margin:4px 0 0;">Activa o desactiva el acceso de cuentas ya registradas.</p>
+                <p class="section-desc" style="margin:4px 0 0;">Activa o desactiva cuentas y asigna o revoca permisos de coadministrador.</p>
               </div>
               <button type="button" id="adm-members-refresh" class="btn btn-secondary btn-sm">Actualizar</button>
             </div>
@@ -4507,7 +4554,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         if (bulkInput) bulkInput.addEventListener('change', async ev => {
           const file = ev.target.files && ev.target.files[0];
           ev.target.value = '';
-          if (!file || !requireAdmin()) return;
+          if (!file || !requireSongManager()) return;
           try {
             const parsedSongs = await parseBulkSongFile(file);
             if (!parsedSongs.length) throw new Error('No se detectaron cantos. Revisa el formato del archivo.');
@@ -5124,53 +5171,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       // Los cantos no publicados solo son visibles para administradores.
       function getAccessibleSongs() {
-        return state.isAdmin ? state.songs : state.songs.filter(song => song.published === true);
+        return canManageSongs() ? state.songs : state.songs.filter(song => song.published === true);
       }
 
       // Orden del Cantoral: registro original o alfabético A-Z.
       let cantoralSortMode = 'registro';
-      function renderPendingPublicationPanel() {
-        const panel = document.getElementById('pending-release-panel');
-        const itemsBox = document.getElementById('pending-release-items');
-        const count = document.getElementById('pending-release-count');
-        const selectAll = document.getElementById('pending-release-all');
-        const publishBtn = document.getElementById('pending-release-submit');
-        if (!panel || !itemsBox || !count || !selectAll || !publishBtn) return;
-        const pending = state.isAdmin ? state.songs.filter(song => song.published !== true) : [];
-        panel.style.display = state.isAdmin ? 'block' : 'none';
-        count.textContent = `${pending.length} canto(s) pendientes. Solo el administrador puede liberarlos.`;
-        if (!state.isAdmin) { itemsBox.innerHTML = ''; return; }
-        if (!pending.length) {
-          itemsBox.innerHTML = '<p class="empty-state" style="margin:0;">No hay cantos pendientes de publicación.</p>';
-        } else {
-          itemsBox.innerHTML = pending.map(song => `
-            <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:8px;border:1px solid var(--border);border-radius:9px;">
-              <label style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
-                <input type="checkbox" class="pending-release-check" value="${esc(song.id)}">
-                <span style="min-width:0;overflow-wrap:anywhere;font-size:.86rem;">${esc(song.title)}</span>
-              </label>
-              <button type="button" class="btn btn-primary btn-sm" data-pending-release-one="${esc(song.id)}">Liberar</button>
-            </div>`).join('');
-        }
-        selectAll.onclick = () => {
-          const checks = [...itemsBox.querySelectorAll('.pending-release-check')];
-          const shouldCheck = checks.some(check => !check.checked);
-          checks.forEach(check => { check.checked = shouldCheck; });
-          selectAll.textContent = shouldCheck ? 'Quitar selección' : 'Seleccionar todos';
-        };
-        publishBtn.disabled = pending.length === 0;
-        publishBtn.onclick = async () => {
-          const ids = [...itemsBox.querySelectorAll('.pending-release-check:checked')].map(check => check.value);
-          if (!ids.length) { showToast('Selecciona al menos un canto pendiente.'); return; }
-          await releaseSongs(ids);
-        };
-        itemsBox.querySelectorAll('[data-pending-release-one]').forEach(button => {
-          button.onclick = () => releaseSongs([button.dataset.pendingReleaseOne]);
-        });
-      }
-
       function renderSongsList() {
-        renderPendingPublicationPanel();
         const list = document.getElementById('songs-list');
         const q = state.searchQuery.trim().toLowerCase();
         const sortControl = document.getElementById('cantoral-sort-toggle');
@@ -5189,7 +5195,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
         const songNumbers = new Map(orderedSongs.map((song, index) => [song.id, index + 1]));
 
-        const filteredByControls = orderedSongs.filter(s => {
+        const filtered = orderedSongs.filter(s => {
           const mOk = state.filterMoment === 'Todos' || s.moment === state.filterMoment;
           const tOk = state.filterSeason === 'Todos' || s.season === state.filterSeason;
           const qOk = !q ||
@@ -5200,34 +5206,20 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             (s.season || '').toLowerCase().includes(q);
           return mOk && tOk && qOk;
         });
-        // En Modo Administrador, los pendientes siempre aparecen aunque haya filtros activos.
-        const allPending = state.isAdmin ? orderedSongs.filter(s => s.published !== true) : [];
-        const filtered = state.isAdmin
-          ? [...allPending, ...filteredByControls.filter(s => s.published === true)]
-          : filteredByControls;
 
         document.getElementById('songs-count-txt').textContent =
           `${accessibleSongs.length} ${accessibleSongs.length === 1 ? 'canto en repertorio' : 'cantos en repertorio'}`;
 
-        const pendingFiltered = allPending;
-        const releaseToolbar = state.isAdmin ? `
-          <div class="admin-release-toolbar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px;margin:10px 0;border:2px solid var(--primary);border-radius:12px;background:var(--surface-2);">
-            <strong style="font-size:.9rem;">🚀 Cantos pendientes de publicación (${pendingFiltered.length})</strong>
-            <label style="display:flex;gap:7px;align-items:center;font-size:.85rem;"><input type="checkbox" id="release-select-all"> Seleccionar bloque</label>
-            <button type="button" class="btn btn-primary" id="release-selected-btn">Liberar seleccionados</button>
-          </div>` : '';
-
         if (filtered.length === 0) {
-          list.innerHTML = `${releaseToolbar}<div class="empty-state">No se encontraron cantos con esos filtros.</div>`;
+          list.innerHTML = `<div class="empty-state">No se encontraron cantos con esos filtros.</div>`;
           return;
         }
 
-        list.innerHTML = releaseToolbar + filtered.map(s => {
+        list.innerHTML = filtered.map(s => {
           const hasAudio = Boolean(s.audioUrl || state.sessionAudioMap[s.id]);
-          const editBtns = state.isAdmin ? `
-            ${s.published !== true ? `<label title="Seleccionar para liberar por bloque" style="display:flex;align-items:center;margin-right:5px;"><input type="checkbox" class="release-song-check" value="${esc(s.id)}" aria-label="Seleccionar ${esc(s.title)}"></label><button type="button" class="mini-icon-btn" data-release-song="${esc(s.id)}" title="Liberar canto">🚀</button>` : ''}
-            <button type="button" class="mini-icon-btn" data-edit-song="${esc(s.id)}" title="Editar canto">✏️</button>
-            <button type="button" class="mini-icon-btn danger" data-del-song="${esc(s.id)}" title="Eliminar canto">🗑️</button>
+          const editBtns = canManageSongs() ? `
+            <button type="button" class="mini-icon-btn" data-edit-song="${s.id}" title="Editar canto">✏️</button>
+            <button type="button" class="mini-icon-btn danger" data-del-song="${s.id}" title="Eliminar canto">🗑️</button>
           ` : '';
 
           return `
@@ -5260,19 +5252,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           btn.onclick = () => openQuickAddToListModal(btn.dataset.addToList);
         });
 
-        if (state.isAdmin) {
-          const selectAll = document.getElementById('release-select-all');
-          selectAll?.addEventListener('change', () => {
-            list.querySelectorAll('.release-song-check').forEach(check => { check.checked = selectAll.checked; });
-          });
-          document.getElementById('release-selected-btn')?.addEventListener('click', async () => {
-            const ids = [...list.querySelectorAll('.release-song-check:checked')].map(check => check.value);
-            if (!ids.length) { showToast('Selecciona al menos un canto pendiente.'); return; }
-            await releaseSongs(ids);
-          });
-          list.querySelectorAll('[data-release-song]').forEach(btn => {
-            btn.onclick = () => releaseSongs([btn.dataset.releaseSong]);
-          });
+        if (canManageSongs()) {
           list.querySelectorAll('[data-edit-song]').forEach(btn => {
             btn.onclick = () => openSongFormModal(btn.dataset.editSong);
           });
@@ -5280,38 +5260,6 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             btn.onclick = () => deleteSongWithConfirm(btn.dataset.delSong);
           });
         }
-      }
-
-      async function releaseSongs(songIds) {
-        if (!requireAdmin()) return;
-        const uniqueIds = [...new Set(songIds.map(String))];
-        const pending = uniqueIds.map(id => state.songs.find(song => String(song.id) === id)).filter(song => song && song.published !== true);
-        if (!pending.length) { showToast('No hay cantos pendientes para liberar.'); return; }
-        const label = pending.length === 1 ? `\u00ab${pending[0].title}\u00bb` : `${pending.length} cantos seleccionados`;
-        if (!window.confirm(`\u00bfConfirmas publicar ${label}? Ser\u00e1n visibles para todos los usuarios.`)) return;
-        if (!state.supabaseSession?.access_token) { showToast('La sesi\u00f3n de administrador no est\u00e1 activa.'); return; }
-        let released = 0;
-        const failures = [];
-        for (const song of pending) {
-          try {
-            const rowFilter = song.dbId != null
-              ? `id=eq.${encodeURIComponent(String(song.dbId))}`
-              : `app_id=eq.${encodeURIComponent(String(song.appId || song.id))}`;
-            await supabaseRequest(`/rest/v1/cantos?${rowFilter}`, {
-              method: 'PATCH',
-              headers: { Prefer: 'return=minimal' },
-              body: JSON.stringify({ publicado: true })
-            }, true);
-            song.published = true;
-            released++;
-          } catch (error) {
-            failures.push(`${song.title}: ${error.message}`);
-          }
-        }
-        saveSongs();
-        renderSongsList();
-        if (failures.length) showToast(`Liberados ${released} de ${pending.length}. Pendientes: ${failures.join(' | ')}`);
-        else showToast(released === 1 ? 'Canto publicado y visible para los usuarios.' : `${released} cantos publicados y visibles para los usuarios.`);
       }
 
       function openQuickAddToListModal(songId) {
@@ -5362,7 +5310,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function deleteSongWithConfirm(songId) {
-        if (!requireAdmin()) return;
+        if (!requireSongManager()) return;
         const s = state.songs.find(x => x.id === songId);
         if (!s) return;
         confirmDialog('Eliminar Canto', `¿Deseas eliminar "${s.title}" del cantoral y de los listados?`, 'Eliminar', () => {
@@ -5447,7 +5395,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function openSongFormModal(songId = null) {
-        if (!requireAdmin()) return;
+        if (!requireSongManager()) return;
         const song = songId ? state.songs.find(s => s.id === songId) : null;
         const isEdit = Boolean(song);
 
@@ -5997,7 +5945,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
         document.getElementById('song-form').onsubmit = async e => {
           e.preventDefault();
-          if (!requireAdmin()) return;
+          if (!requireSongManager()) return;
           const title = document.getElementById('sf-title').value.trim();
           if (!title) { document.getElementById('sf-title').focus(); return; }
           const data = {
@@ -6172,7 +6120,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function openBulkImportPreview(items, filename) {
-        if (!requireAdmin()) return;
+        if (!requireSongManager()) return;
         const existingByTitle = new Map();
         state.songs.forEach(song => {
           const key = normalizeBulkTitle(song.title);
@@ -6199,7 +6147,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('bulk-close').onclick=closeModal;
         document.getElementById('bulk-cancel').onclick=closeModal;
         document.getElementById('bulk-confirm').onclick=async()=>{
-          if (!requireAdmin()) return;
+          if (!requireSongManager()) return;
           const btn=document.getElementById('bulk-confirm');
           btn.disabled=true; btn.textContent='Procesando…';
           let added=0, replaced=0, kept=0, cloudOK=0, cloudFail=0;
@@ -7977,30 +7925,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         // Top Bar
         document.getElementById('btn-admin-role').onclick = () => {
           if (state.isAdmin) openAdminPanelModal();
-          else if (state.isMember) {
-            state.supabaseSession = null;
-            state.isMember = false;
-            state.userRole = '';
-            state.userEmail = '';
-            setAdminMode(false);
-            state.songs = [];
-            renderSongsList();
-            renderVisor();
-            showToast('Sesión cerrada');
-          } else openAdminLoginModal();
+          else if (state.isCoAdmin) openCoAdminPanelModal();
+          else if (state.isMember) logoutChoirSession();
+          else openAdminLoginModal();
         };
         document.getElementById('btn-notice-unlock').onclick = openAdminLoginModal;
-        document.getElementById('btn-banner-lock').onclick = () => {
-          state.supabaseSession = null;
-          state.isMember = false;
-          state.userRole = '';
-          state.userEmail = '';
-          setAdminMode(false);
-          state.songs = [];
-          renderSongsList();
-          renderVisor();
-          showToast('Sesión cerrada');
-        };
+        document.getElementById('btn-banner-lock').onclick = logoutChoirSession;
         document.getElementById('btn-open-theme').onclick = openThemeModal;
         document.getElementById('btn-fullscreen-top').onclick = toggleFullscreen;
         document.getElementById('btn-atril-fs').onclick = toggleFullscreen;
@@ -8049,7 +7979,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.querySelectorAll('[data-tool-open]').forEach(btn => {
           btn.onclick = () => {
             const target = btn.dataset.toolOpen;
-            if (target === 'editor-cantos' && !state.isAdmin) { showToast('El Editor de Cantos requiere Modo Administrador'); return; }
+            if (target === 'editor-cantos' && !canManageSongs()) { showToast('El Editor de Cantos requiere permiso de gestión del repertorio'); return; }
             const branch = document.getElementById('home-tools-branch');
             if (branch) { branch.classList.remove('is-open'); branch.setAttribute('aria-hidden','true'); }
             const toolsEntry = document.querySelector('[data-home-open="herramientas"]');
