@@ -5154,38 +5154,42 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       // Navegación global por gestos laterales (móvil y tableta).
-      // Se escucha desde document en fase de captura para que el gesto llegue
-      // aunque una pantalla interna tenga contenedores con listeners propios.
+      // Pointer Events cubre pantallas táctiles Android/iOS y evita depender
+      // exclusivamente de touch events que algunos contenedores pueden cancelar.
       (() => {
         const swipeOrder = ['inicio', 'herramientas', 'cantoral', 'visor', 'listas', 'metronomo', 'estudio', 'ensayo'];
-        let startX = 0, startY = 0, startAt = 0, eligible = false;
-        const ignored = 'button, a, input, textarea, select, [contenteditable="true"], [role="button"], #modal-backdrop, #atril-overlay, .unified-tools-nav, .bottom-nav, .home-radial-menu, .home-tools-branch, .mini-tool-window';
-        document.addEventListener('touchstart', event => {
-          if (event.touches.length !== 1) { eligible = false; return; }
-          const touch = event.touches[0];
-          const target = event.target instanceof Element ? event.target : event.target.parentElement;
-          eligible = Boolean(target) && !target.closest(ignored);
-          const scrollArea = target && target.closest('[data-no-swipe], .horizontal-scroll, .table-wrap');
-          if (scrollArea && scrollArea.scrollWidth > scrollArea.clientWidth + 8) eligible = false;
-          startX = touch.clientX;
-          startY = touch.clientY;
+        let startX = 0, startY = 0, startAt = 0, activePointer = null, eligible = false;
+        const ignored = 'button, a, input, textarea, select, [contenteditable="true"], [role="button"], #modal-backdrop, #atril-overlay, .unified-tools-nav, .bottom-nav, .home-radial-menu, .home-tools-branch';
+        const getTarget = event => event.target instanceof Element ? event.target : event.target?.parentElement;
+        document.addEventListener('pointerdown', event => {
+          if (event.pointerType !== 'touch' || !event.isPrimary) return;
+          const target = getTarget(event);
+          if (!target || target.closest(ignored)) { eligible = false; activePointer = null; return; }
+          const scrollArea = target.closest('[data-no-swipe], .horizontal-scroll, .table-wrap');
+          if (scrollArea && scrollArea.scrollWidth > scrollArea.clientWidth + 8) { eligible = false; activePointer = null; return; }
+          startX = event.clientX;
+          startY = event.clientY;
           startAt = Date.now();
+          activePointer = event.pointerId;
+          eligible = true;
         }, { passive: true, capture: true });
-        document.addEventListener('touchend', event => {
-          if (!eligible || !event.changedTouches.length) return;
+        document.addEventListener('pointerup', event => {
+          if (!eligible || event.pointerId !== activePointer) return;
           eligible = false;
-          const touch = event.changedTouches[0];
-          const dx = touch.clientX - startX;
-          const dy = touch.clientY - startY;
+          activePointer = null;
+          const dx = event.clientX - startX;
+          const dy = event.clientY - startY;
           const elapsed = Date.now() - startAt;
-          if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.35 || elapsed > 1200) return;
+          if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.25 || elapsed > 1500) return;
           const current = swipeOrder.indexOf(state.activeTab);
           if (current < 0) return;
           const next = current + (dx < 0 ? 1 : -1);
           if (next < 0 || next >= swipeOrder.length) return;
           showTab(swipeOrder[next]);
         }, { passive: true, capture: true });
-        document.addEventListener('touchcancel', () => { eligible = false; }, { passive: true, capture: true });
+        const cancelSwipe = () => { eligible = false; activePointer = null; };
+        document.addEventListener('pointercancel', cancelSwipe, { passive: true, capture: true });
+        document.addEventListener('contextmenu', cancelSwipe, true);
       })();
 
       document.getElementById("global-home-return")?.addEventListener("click", () => {
