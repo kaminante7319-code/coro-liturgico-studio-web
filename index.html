@@ -4405,7 +4405,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             <label class="btn btn-secondary btn-sm" style="cursor:pointer; text-align:center;">Seleccionar archivo TXT / CSV / JSON
               <input id="adm-bulk-import-file" type="file" accept=".txt,.csv,.json,text/plain,text/csv,application/json" class="hidden" />
             </label>
-            <small style="color:var(--text-muted);">Los cantos nuevos se guardan inicialmente sin publicar. Los duplicados por título se omiten.</small>
+            <small style="color:var(--text-muted);">Los cantos nuevos se guardan inicialmente sin publicar. Los duplicados se pueden reemplazar, conservar o importar como una nueva versión.</small>
           </section>
           <div class="divider"></div>
           <section style="display:flex; flex-direction:column; gap:9px;">
@@ -6006,7 +6006,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           ['adoracion','Adoración'],['mariano','Mariano']
         ];
         const found = options.find(([k]) => v.includes(k));
-        return found ? found[1] : 'Entrada';
+        if (found) return found[1];
+        if (v.includes('por clasificar') || v.includes('pendiente') || v.includes('sin clasificar')) return 'Por clasificar';
+        return 'Entrada';
       }
 
       function normalizeBulkSeason(value) {
@@ -6059,33 +6061,58 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function openBulkImportPreview(items, filename) {
         if (!requireAdmin()) return;
-        const seen = new Set(state.songs.map(s=>normalizeBulkTitle(s.title)));
-        const duplicates = items.filter(s=>seen.has(normalizeBulkTitle(s.title)));
-        const fresh = items.filter(s=>!seen.has(normalizeBulkTitle(s.title)));
+        const existingByTitle = new Map();
+        state.songs.forEach(song => {
+          const key = normalizeBulkTitle(song.title);
+          if (!existingByTitle.has(key)) existingByTitle.set(key, song);
+        });
+        const duplicateCount = items.filter(s => existingByTitle.has(normalizeBulkTitle(s.title))).length;
+        const freshCount = items.length - duplicateCount;
         const rows = items.map((s,i)=>{
-          const duplicate=seen.has(normalizeBulkTitle(s.title));
+          const existing = existingByTitle.get(normalizeBulkTitle(s.title));
+          const action = existing
+            ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><label for="bulk-action-${i}" style="font-size:.78rem;color:var(--text-muted)">Si ya existe:</label><select id="bulk-action-${i}" class="input" style="max-width:230px;padding:7px;"><option value="keep">Conservar existente</option><option value="replace">Reemplazar existente</option><option value="new">Importar como nuevo</option></select></div><small style="color:var(--text-muted)">Registro actual: ${esc(existing.title)} · ${esc(existing.author || 'Autor no indicado')} · ${existing.published ? 'Publicado' : 'No publicado'}</small>`
+            : `<span style="font-size:.72rem;color:#15803d">Nuevo</span>`;
           return `<div style="padding:9px;border:1px solid var(--border);border-radius:9px;margin-bottom:7px;">
-            <div style="display:flex;justify-content:space-between;gap:8px;"><strong>${i+1}. ${esc(s.title)}</strong><span style="font-size:.72rem;color:${duplicate?'#b45309':'#15803d'}">${duplicate?'Duplicado: se omitirá':'Nuevo'}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:8px;"><strong>${i+1}. ${esc(s.title)}</strong>${action}</div>
             <small style="color:var(--text-muted)">${esc(s.author || 'Autor no indicado')} · ${esc(s.moment)} · ${esc(s.season)} · Tono ${esc(s.key)}</small>
             <details style="margin-top:5px;"><summary>Vista previa de letra</summary><pre style="white-space:pre-wrap;font:inherit;font-size:.78rem;max-height:140px;overflow:auto;">${esc(s.lyrics)}</pre></details>
           </div>`;
         }).join('');
         openModal(`<div class="row-between"><h3 class="section-title">Vista previa de importación</h3><button id="bulk-close" class="mini-icon-btn" type="button">&times;</button></div>
-          <p class="section-desc">${esc(filename)} · ${items.length} detectados · ${fresh.length} nuevos · ${duplicates.length} duplicados</p>
+          <p class="section-desc">${esc(filename)} · ${items.length} detectados · ${freshCount} nuevos · ${duplicateCount} duplicados</p>
           <div style="max-height:48vh;overflow:auto;">${rows}</div>
-          <p style="font-size:.76rem;color:var(--text-muted)">Todos se importarán como no publicados. Revisa especialmente la categoría y el tono antes de confirmar.</p>
-          <div class="row" style="justify-content:flex-end;gap:8px;"><button id="bulk-cancel" class="btn btn-secondary btn-sm" type="button">Cancelar</button><button id="bulk-confirm" class="btn btn-primary btn-sm" type="button" ${fresh.length?'':'disabled'}>Importar ${fresh.length} cantos</button></div>`);
+          <p style="font-size:.76rem;color:var(--text-muted)">Los cantos nuevos se importan sin publicar. Al reemplazar se conserva el ID, el estado de publicación y los datos de audio del canto existente. Ningún reemplazo se realiza sin tu selección.</p>
+          <div class="row" style="justify-content:flex-end;gap:8px;"><button id="bulk-cancel" class="btn btn-secondary btn-sm" type="button">Cancelar</button><button id="bulk-confirm" class="btn btn-primary btn-sm" type="button">Procesar selección</button></div>`);
         document.getElementById('bulk-close').onclick=closeModal;
         document.getElementById('bulk-cancel').onclick=closeModal;
         document.getElementById('bulk-confirm').onclick=async()=>{
           if (!requireAdmin()) return;
           const btn=document.getElementById('bulk-confirm');
-          btn.disabled=true; btn.textContent='Importando…';
-          const toAdd=items.filter(s=>!state.songs.some(old=>normalizeBulkTitle(old.title)===normalizeBulkTitle(s.title)));
-          let localOK=0, cloudOK=0, cloudFail=0;
-          for (const item of toAdd) {
-            const song={id:'song-'+Date.now()+'-'+Math.random().toString(36).slice(2,8), title:item.title, author:item.author||'', moment:item.moment||'Entrada', season:item.season||'Ordinario', key:item.key||'C', bpm:Number(item.bpm)||80, notes:item.notes||'', lyrics:item.lyrics, audioUrl:'', audioName:'', published:false};
-            state.songs.unshift(song); localOK++;
+          btn.disabled=true; btn.textContent='Procesando…';
+          let added=0, replaced=0, kept=0, cloudOK=0, cloudFail=0;
+          for (let i=0;i<items.length;i++) {
+            const item=items[i];
+            const key=normalizeBulkTitle(item.title);
+            const existing=state.songs.find(old=>normalizeBulkTitle(old.title)===key);
+            const choice=existing ? (document.getElementById(`bulk-action-${i}`)?.value || 'keep') : 'new';
+            if (existing && choice==='keep') { kept++; continue; }
+            let song;
+            if (existing && choice==='replace') {
+              song={...existing, title:item.title, author:item.author||existing.author||'', moment:item.moment||existing.moment, season:item.season||existing.season, key:item.key||existing.key, bpm:Number(item.bpm)||existing.bpm||80, notes:item.notes||existing.notes||'', lyrics:item.lyrics, id:existing.id, published:existing.published, audioUrl:existing.audioUrl||'', audioName:existing.audioName||''};
+              const index=state.songs.findIndex(old=>old.id===existing.id);
+              if (index>=0) state.songs[index]=song;
+              replaced++;
+            } else {
+              let title=item.title;
+              if (existing && choice==='new') {
+                let n=2;
+                while (state.songs.some(old=>normalizeBulkTitle(old.title)===normalizeBulkTitle(`${item.title} (versión ${n})`))) n++;
+                title=`${item.title} (versión ${n})`;
+              }
+              song={id:'song-'+Date.now()+'-'+Math.random().toString(36).slice(2,8), title, author:item.author||'', moment:item.moment||'Entrada', season:item.season||'Ordinario', key:item.key||'C', bpm:Number(item.bpm)||80, notes:item.notes||'', lyrics:item.lyrics, audioUrl:'', audioName:'', published:false};
+              state.songs.unshift(song); added++;
+            }
             try { await saveSongToSupabase(song); cloudOK++; }
             catch(err) { cloudFail++; console.warn('Importación nube pendiente:',song.title,err); }
           }
@@ -6094,7 +6121,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             try { localStorage.setItem(STORAGE.SONGS,JSON.stringify(stripHeavyAudioForLocalStorage(state.songs))); } catch(_){}
           } catch(err) { console.error(err); }
           closeModal(); renderSongsList(); renderListasView(); updateListasNavBadge(); if(state.activeTab==='visor') renderVisor();
-          showToast(`Importación terminada: ${localOK} local · ${cloudOK} nube · ${cloudFail} pendientes`);
+          showToast(`Proceso terminado: ${added} nuevos · ${replaced} reemplazados · ${kept} conservados · ${cloudOK} nube · ${cloudFail} pendientes`);
         };
       }
 
