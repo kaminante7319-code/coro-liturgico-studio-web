@@ -2673,6 +2673,27 @@ body.home-active #view-inicio .home-brand-band span {
 
 </style>
 
+
+<style id="cls-chord-contrast-fix">
+/* Correccion aislada: etiquetas de acordes legibles en superficies oscuras */
+#view-visor .chord-tag,
+#atril-overlay .chord-tag {
+  color: #67e8f9 !important;
+  background: #12324a !important;
+  border: 1px solid #22d3ee !important;
+  font-weight: 800 !important;
+  text-shadow: 0 1px 1px rgba(0,0,0,.45);
+  box-shadow: 0 1px 4px rgba(0,0,0,.22);
+}
+#view-visor .chord-tag.clickable:hover,
+#view-visor .chord-tag.clickable:active,
+#atril-overlay .chord-tag.clickable:hover,
+#atril-overlay .chord-tag.clickable:active {
+  color: #082f49 !important;
+  background: #67e8f9 !important;
+  border-color: #a5f3fc !important;
+}
+</style>
 </head>
 <body class="home-active">
   <button type="button" id="global-home-return" aria-label="Volver al menú principal" title="Volver al menú principal" style="display:none">⌂</button>
