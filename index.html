@@ -3980,6 +3980,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const moment = category?.nombre || 'Todos';
         return {
           id: row.app_id || String(row.id),
+          supabaseId: row.id,
+          supabaseAppId: row.app_id || null,
           title: row.titulo || 'Canto sin título',
           moment: moment,
           season: row.tiempo_liturgico || 'Ordinario',
@@ -4019,7 +4021,6 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         if (!state.supabaseSession?.access_token) throw new Error('Inicia sesión como administrador.');
         const category = state.supabaseCategories.find(c => String(c.nombre).toLowerCase() === String(song.moment || '').toLowerCase());
         const payload = {
-          app_id: String(song.id),
           titulo: song.title,
           letra: song.lyrics || '',
           autor: song.author || '',
@@ -4033,11 +4034,34 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           audio_url: (song.audioUrl || '').startsWith('http') ? song.audioUrl : '',
           audio_name: song.audioName || null
         };
-        await supabaseRequest('/rest/v1/cantos?on_conflict=app_id', {
-          method: 'POST',
-          headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-          body: JSON.stringify(payload)
-        }, true);
+        let savedRows;
+        if (song.supabaseId != null) {
+          // Update the exact existing database row; do not rely on app_id being populated.
+          savedRows = await supabaseRequest('/rest/v1/cantos?id=eq.' + encodeURIComponent(String(song.supabaseId)) + '&select=id,app_id,titulo,letra,cifrado', {
+            method: 'PATCH',
+            headers: { Prefer: 'return=representation' },
+            body: JSON.stringify(payload)
+          }, true);
+          if (!Array.isArray(savedRows) || savedRows.length !== 1) {
+            throw new Error('Supabase no confirmó la actualización del registro existente (ID ' + song.supabaseId + ').');
+          }
+          const saved = savedRows[0];
+          if (String(saved.titulo || '') !== String(song.title || '') || String(saved.cifrado || saved.letra || '') !== String(song.lyrics || '')) {
+            throw new Error('Supabase respondió, pero la verificación de título o letra no coincide.');
+          }
+        } else {
+          payload.app_id = String(song.id);
+          savedRows = await supabaseRequest('/rest/v1/cantos?on_conflict=app_id&select=id,app_id,titulo,letra,cifrado', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+            body: JSON.stringify(payload)
+          }, true);
+          if (!Array.isArray(savedRows) || savedRows.length !== 1) {
+            throw new Error('Supabase no devolvió confirmación verificable del canto nuevo.');
+          }
+          song.supabaseId = savedRows[0].id;
+          song.supabaseAppId = savedRows[0].app_id || null;
+        }
       }
 
       async function deleteSongFromSupabase(songId) {
@@ -6114,7 +6138,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               song={id:'song-'+Date.now()+'-'+Math.random().toString(36).slice(2,8), title, author:item.author||'', moment:item.moment||'Entrada', season:item.season||'Ordinario', key:item.key||'C', bpm:Number(item.bpm)||80, notes:item.notes||'', lyrics:item.lyrics, audioUrl:'', audioName:'', published:false};
               state.songs.unshift(song); added++;
             }
-            try { await saveSongToSupabase(song); cloudOK++; outcomes.push({title:item.title,status:'Sincronizado en Supabase',detail:'La solicitud de guardado fue aceptada'}); }
+            try { await saveSongToSupabase(song); cloudOK++; outcomes.push({title:item.title,status:'Verificado en Supabase',detail:'Registro actualizado y letra comprobada en la respuesta de la base de datos'}); }
             catch(err) { cloudFail++; outcomes.push({title:item.title,status:'Pendiente en Supabase',detail:err?.message||'Error de sincronización'}); console.warn('Importación nube pendiente:',song.title,err); }
           }
           try {
@@ -6126,10 +6150,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           const outcomeRows=outcomes.map(o=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);"><strong>${esc(o.title)}</strong><div style="font-size:.78rem;color:var(--text-muted);">${esc(o.status)}${o.detail?' · '+esc(o.detail):''}</div></div>`).join('');
           openModal(`<div class="row-between"><h3 class="section-title">Resultado de importación</h3><button id="bulk-result-close" class="mini-icon-btn" type="button">&times;</button></div>
             <p class="section-desc">${added} nuevos · ${replaced} reemplazos locales · ${kept} conservados</p>
-            <p style="font-size:.82rem;">Supabase: <strong>${cloudOK} solicitudes aceptadas</strong> · <strong>${cloudFail} pendientes</strong></p>
+            <p style="font-size:.82rem;">Supabase: <strong>${cloudOK} guardados verificados</strong> · <strong>${cloudFail} pendientes</strong></p>
             <p style="font-size:.82rem;">Guardado local: <strong>${localOK?'confirmado':'no confirmado'}</strong>${localError?' · '+esc(localError):''}</p>
             <div style="max-height:48vh;overflow:auto;">${outcomeRows}</div>
-            <p style="font-size:.74rem;color:var(--text-muted);margin-top:10px;">“Solicitud aceptada” confirma la respuesta de guardado, no una verificación posterior de lectura. Si hay pendientes, no repitas el lote: revisa primero el error indicado.</p>
+            <p style="font-size:.74rem;color:var(--text-muted);margin-top:10px;">“Verificado” significa que Supabase devolvió el registro actualizado y se comprobó su título y letra. Si hay pendientes, no repitas el lote: revisa primero el error indicado.</p>
             <div class="row" style="justify-content:flex-end;"><button id="bulk-result-ok" class="btn btn-primary btn-sm" type="button">Cerrar</button></div>`);
           document.getElementById('bulk-result-close').onclick=closeModal;
           document.getElementById('bulk-result-ok').onclick=closeModal;
