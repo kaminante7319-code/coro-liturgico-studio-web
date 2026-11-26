@@ -6090,13 +6090,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           if (!requireAdmin()) return;
           const btn=document.getElementById('bulk-confirm');
           btn.disabled=true; btn.textContent='Procesando…';
-          let added=0, replaced=0, kept=0, cloudOK=0, cloudFail=0;
+          let added=0, replaced=0, kept=0, cloudOK=0, cloudFail=0, localOK=false, localError='';
+          const outcomes=[];
           for (let i=0;i<items.length;i++) {
             const item=items[i];
             const key=normalizeBulkTitle(item.title);
             const existing=state.songs.find(old=>normalizeBulkTitle(old.title)===key);
             const choice=existing ? (document.getElementById(`bulk-action-${i}`)?.value || 'keep') : 'new';
-            if (existing && choice==='keep') { kept++; continue; }
+            if (existing && choice==='keep') { kept++; outcomes.push({title:item.title,status:'Conservado',detail:'No se modificó'}); continue; }
             let song;
             if (existing && choice==='replace') {
               song={...existing, title:item.title, author:item.author||existing.author||'', moment:item.moment||existing.moment, season:item.season||existing.season, key:item.key||existing.key, bpm:Number(item.bpm)||existing.bpm||80, notes:item.notes||existing.notes||'', lyrics:item.lyrics, id:existing.id, published:existing.published, audioUrl:existing.audioUrl||'', audioName:existing.audioName||''};
@@ -6113,15 +6114,25 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               song={id:'song-'+Date.now()+'-'+Math.random().toString(36).slice(2,8), title, author:item.author||'', moment:item.moment||'Entrada', season:item.season||'Ordinario', key:item.key||'C', bpm:Number(item.bpm)||80, notes:item.notes||'', lyrics:item.lyrics, audioUrl:'', audioName:'', published:false};
               state.songs.unshift(song); added++;
             }
-            try { await saveSongToSupabase(song); cloudOK++; }
-            catch(err) { cloudFail++; console.warn('Importación nube pendiente:',song.title,err); }
+            try { await saveSongToSupabase(song); cloudOK++; outcomes.push({title:item.title,status:'Sincronizado en Supabase',detail:'La solicitud de guardado fue aceptada'}); }
+            catch(err) { cloudFail++; outcomes.push({title:item.title,status:'Pendiente en Supabase',detail:err?.message||'Error de sincronización'}); console.warn('Importación nube pendiente:',song.title,err); }
           }
           try {
             await idbSet('songs',state.songs);
             try { localStorage.setItem(STORAGE.SONGS,JSON.stringify(stripHeavyAudioForLocalStorage(state.songs))); } catch(_){}
-          } catch(err) { console.error(err); }
+            localOK=true;
+          } catch(err) { localError=err?.message||String(err); console.error('Persistencia local de importación:',err); }
           closeModal(); renderSongsList(); renderListasView(); updateListasNavBadge(); if(state.activeTab==='visor') renderVisor();
-          showToast(`Proceso terminado: ${added} nuevos · ${replaced} reemplazados · ${kept} conservados · ${cloudOK} nube · ${cloudFail} pendientes`);
+          const outcomeRows=outcomes.map(o=>`<div style="padding:7px 0;border-bottom:1px solid var(--border);"><strong>${esc(o.title)}</strong><div style="font-size:.78rem;color:var(--text-muted);">${esc(o.status)}${o.detail?' · '+esc(o.detail):''}</div></div>`).join('');
+          openModal(`<div class="row-between"><h3 class="section-title">Resultado de importación</h3><button id="bulk-result-close" class="mini-icon-btn" type="button">&times;</button></div>
+            <p class="section-desc">${added} nuevos · ${replaced} reemplazos locales · ${kept} conservados</p>
+            <p style="font-size:.82rem;">Supabase: <strong>${cloudOK} solicitudes aceptadas</strong> · <strong>${cloudFail} pendientes</strong></p>
+            <p style="font-size:.82rem;">Guardado local: <strong>${localOK?'confirmado':'no confirmado'}</strong>${localError?' · '+esc(localError):''}</p>
+            <div style="max-height:48vh;overflow:auto;">${outcomeRows}</div>
+            <p style="font-size:.74rem;color:var(--text-muted);margin-top:10px;">“Solicitud aceptada” confirma la respuesta de guardado, no una verificación posterior de lectura. Si hay pendientes, no repitas el lote: revisa primero el error indicado.</p>
+            <div class="row" style="justify-content:flex-end;"><button id="bulk-result-ok" class="btn btn-primary btn-sm" type="button">Cerrar</button></div>`);
+          document.getElementById('bulk-result-close').onclick=closeModal;
+          document.getElementById('bulk-result-ok').onclick=closeModal;
         };
       }
 
