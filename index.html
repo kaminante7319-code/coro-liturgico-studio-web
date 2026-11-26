@@ -2828,6 +2828,17 @@ body.home-active #view-inicio .home-brand-band span {
         </div>
       </div>
 
+      <section id="pending-release-panel" class="card" style="display:none;margin:12px 0;border:2px solid var(--primary);padding:14px;">
+        <div class="row-between" style="gap:10px;flex-wrap:wrap;">
+          <div>
+            <h3 style="margin:0;font-size:1rem;">🚀 Cantos pendientes de publicación</h3>
+            <p id="pending-release-count" style="margin:4px 0 0;color:var(--text-muted);font-size:.8rem;"></p>
+          </div>
+          <button type="button" id="pending-release-all" class="btn btn-secondary btn-sm">Seleccionar todos</button>
+        </div>
+        <div id="pending-release-items" style="display:flex;flex-direction:column;gap:8px;margin:12px 0;"></div>
+        <button type="button" id="pending-release-submit" class="btn btn-primary" style="width:100%;">Liberar seleccionados</button>
+      </section>
       <div id="songs-list" style="display:flex; flex-direction:column; gap:10px;"></div>
     </section>
 
@@ -5118,7 +5129,48 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       // Orden del Cantoral: registro original o alfabético A-Z.
       let cantoralSortMode = 'registro';
+      function renderPendingPublicationPanel() {
+        const panel = document.getElementById('pending-release-panel');
+        const itemsBox = document.getElementById('pending-release-items');
+        const count = document.getElementById('pending-release-count');
+        const selectAll = document.getElementById('pending-release-all');
+        const publishBtn = document.getElementById('pending-release-submit');
+        if (!panel || !itemsBox || !count || !selectAll || !publishBtn) return;
+        const pending = state.isAdmin ? state.songs.filter(song => song.published !== true) : [];
+        panel.style.display = state.isAdmin ? 'block' : 'none';
+        count.textContent = `${pending.length} canto(s) pendientes. Solo el administrador puede liberarlos.`;
+        if (!state.isAdmin) { itemsBox.innerHTML = ''; return; }
+        if (!pending.length) {
+          itemsBox.innerHTML = '<p class="empty-state" style="margin:0;">No hay cantos pendientes de publicación.</p>';
+        } else {
+          itemsBox.innerHTML = pending.map(song => `
+            <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:8px;border:1px solid var(--border);border-radius:9px;">
+              <label style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
+                <input type="checkbox" class="pending-release-check" value="${esc(song.id)}">
+                <span style="min-width:0;overflow-wrap:anywhere;font-size:.86rem;">${esc(song.title)}</span>
+              </label>
+              <button type="button" class="btn btn-primary btn-sm" data-pending-release-one="${esc(song.id)}">Liberar</button>
+            </div>`).join('');
+        }
+        selectAll.onclick = () => {
+          const checks = [...itemsBox.querySelectorAll('.pending-release-check')];
+          const shouldCheck = checks.some(check => !check.checked);
+          checks.forEach(check => { check.checked = shouldCheck; });
+          selectAll.textContent = shouldCheck ? 'Quitar selección' : 'Seleccionar todos';
+        };
+        publishBtn.disabled = pending.length === 0;
+        publishBtn.onclick = async () => {
+          const ids = [...itemsBox.querySelectorAll('.pending-release-check:checked')].map(check => check.value);
+          if (!ids.length) { showToast('Selecciona al menos un canto pendiente.'); return; }
+          await releaseSongs(ids);
+        };
+        itemsBox.querySelectorAll('[data-pending-release-one]').forEach(button => {
+          button.onclick = () => releaseSongs([button.dataset.pendingReleaseOne]);
+        });
+      }
+
       function renderSongsList() {
+        renderPendingPublicationPanel();
         const list = document.getElementById('songs-list');
         const q = state.searchQuery.trim().toLowerCase();
         const sortControl = document.getElementById('cantoral-sort-toggle');
