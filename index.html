@@ -5154,40 +5154,38 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       // Navegación global por gestos laterales (móvil y tableta).
-      // Solo cambia entre pantallas principales; protege controles, modales,
-      // desplazamiento vertical y áreas con desplazamiento horizontal propio.
+      // Se escucha desde document en fase de captura para que el gesto llegue
+      // aunque una pantalla interna tenga contenedores con listeners propios.
       (() => {
         const swipeOrder = ['inicio', 'herramientas', 'cantoral', 'visor', 'listas', 'metronomo', 'estudio', 'ensayo'];
-        const shell = document.getElementById('app-shell');
-        if (!shell) return;
         let startX = 0, startY = 0, startAt = 0, eligible = false;
-        const ignored = 'button, a, input, textarea, select, [contenteditable="true"], [role="button"], #modal-backdrop, #atril-overlay, .unified-tools-nav, .bottom-nav, .home-radial-menu, .home-tools-branch';
-        shell.addEventListener('touchstart', event => {
+        const ignored = 'button, a, input, textarea, select, [contenteditable="true"], [role="button"], #modal-backdrop, #atril-overlay, .unified-tools-nav, .bottom-nav, .home-radial-menu, .home-tools-branch, .mini-tool-window';
+        document.addEventListener('touchstart', event => {
           if (event.touches.length !== 1) { eligible = false; return; }
           const touch = event.touches[0];
-          const target = event.target;
-          eligible = !target.closest(ignored);
-          const scrollArea = target.closest('[data-no-swipe], .horizontal-scroll, .table-wrap');
+          const target = event.target instanceof Element ? event.target : event.target.parentElement;
+          eligible = Boolean(target) && !target.closest(ignored);
+          const scrollArea = target && target.closest('[data-no-swipe], .horizontal-scroll, .table-wrap');
           if (scrollArea && scrollArea.scrollWidth > scrollArea.clientWidth + 8) eligible = false;
           startX = touch.clientX;
           startY = touch.clientY;
           startAt = Date.now();
-        }, { passive: true });
-        shell.addEventListener('touchend', event => {
+        }, { passive: true, capture: true });
+        document.addEventListener('touchend', event => {
           if (!eligible || !event.changedTouches.length) return;
           eligible = false;
           const touch = event.changedTouches[0];
           const dx = touch.clientX - startX;
           const dy = touch.clientY - startY;
           const elapsed = Date.now() - startAt;
-          if (Math.abs(dx) < 75 || Math.abs(dx) < Math.abs(dy) * 1.25 || elapsed > 900) return;
+          if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.35 || elapsed > 1200) return;
           const current = swipeOrder.indexOf(state.activeTab);
           if (current < 0) return;
           const next = current + (dx < 0 ? 1 : -1);
           if (next < 0 || next >= swipeOrder.length) return;
           showTab(swipeOrder[next]);
-        }, { passive: true });
-        shell.addEventListener('touchcancel', () => { eligible = false; }, { passive: true });
+        }, { passive: true, capture: true });
+        document.addEventListener('touchcancel', () => { eligible = false; }, { passive: true, capture: true });
       })();
 
       document.getElementById("global-home-return")?.addEventListener("click", () => {
