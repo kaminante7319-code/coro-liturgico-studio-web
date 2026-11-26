@@ -2082,6 +2082,15 @@ html{background:var(--bg)} body{background:radial-gradient(ellipse at 50% -20%,#
 .brand{gap:10px}.brand-icon{width:36px;height:36px;border-radius:11px;overflow:hidden;box-shadow:0 4px 12px rgba(201,164,95,.20)}
 .brand-name,.brand-title{letter-spacing:-.035em;font-weight:800}
 .top-bar .btn,.top-bar button{min-height:34px;border-radius:10px;font-size:.78rem;padding:6px 10px}
+/* Acción de asignación de coadministrador: contraste alto en tema oscuro */
+#authorized-members-list .btn-coadmin-action{
+ background:#e4c477 !important; color:#172338 !important;
+ border:1px solid #f0d99e !important; font-weight:800;
+ box-shadow:0 2px 8px rgba(0,0,0,.18);
+}
+#authorized-members-list .btn-coadmin-action:hover{background:#f0d99e !important;filter:none}
+#authorized-members-list .btn-coadmin-action:focus-visible{outline:3px solid #fff1c7;outline-offset:2px}
+#authorized-members-list .btn-coadmin-action:disabled{opacity:.72;color:#172338 !important}
 #app-shell{width:min(100%,1440px);margin:var(--header-h) auto 0;padding:18px 20px calc(var(--nav-h) + 34px)}
 .view-section{gap:12px;padding:8px 4px 18px}
 .card{border-radius:15px;padding:15px;border:1px solid rgba(45,55,90,.075);box-shadow:0 4px 16px rgba(27,39,75,.045)}
@@ -4337,7 +4346,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
                 <button type="button" class="btn btn-secondary btn-sm" data-member-resend="${esc(row.email || '')}">
                   Reenviar acceso
                 </button>
-                ${row.active ? `<button type="button" class="btn ${coadminMap.get(row.user_id) ? 'btn-danger' : 'btn-soft'} btn-sm" data-coadmin-id="${esc(row.user_id)}" data-coadmin-active="${coadminMap.get(row.user_id) ? 'true' : 'false'}">${coadminMap.get(row.user_id) ? 'Revocar coadmin' : 'Hacer coadministrador'}</button>` : ''}
+                ${row.active ? `<button type="button" class="btn ${coadminMap.get(row.user_id) ? 'btn-danger' : 'btn-coadmin-action'} btn-sm" data-coadmin-id="${esc(row.user_id)}" data-coadmin-active="${coadminMap.get(row.user_id) ? 'true' : 'false'}">${coadminMap.get(row.user_id) ? 'Revocar coadmin' : 'Hacer coadministrador'}</button>` : ''}
               </div>
             </div>`).join('');
           host.querySelectorAll('[data-member-id]').forEach(button => {
