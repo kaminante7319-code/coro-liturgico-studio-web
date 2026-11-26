@@ -5144,6 +5144,39 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         window.scrollTo({ top: 0, behavior: 'instant' });
       }
 
+      // Navegación lateral por deslizamiento táctil (fallback nativo Android).
+      // Se instala junto a showTab para tener acceso directo al estado y al controlador.
+      (() => {
+        const swipeTabs = ['inicio', 'herramientas', 'cantoral', 'visor', 'listas', 'metronomo', 'estudio', 'ensayo'];
+        let touchStartX = 0, touchStartY = 0, touchStartTime = 0, touchAllowed = false;
+        const ignoredSwipeTargets = 'button, a, input, textarea, select, [contenteditable="true"], [role="button"], #modal-backdrop, #atril-overlay, .bottom-nav, .unified-tools-nav, .home-radial-menu, .home-tools-branch';
+        document.addEventListener('touchstart', (event) => {
+          if (!event.touches || event.touches.length !== 1) { touchAllowed = false; return; }
+          const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+          if (!target || target.closest(ignoredSwipeTargets)) { touchAllowed = false; return; }
+          touchStartX = event.touches[0].clientX;
+          touchStartY = event.touches[0].clientY;
+          touchStartTime = Date.now();
+          touchAllowed = true;
+        }, { passive: true, capture: true });
+        document.addEventListener('touchend', (event) => {
+          if (!touchAllowed || !event.changedTouches || event.changedTouches.length !== 1) return;
+          touchAllowed = false;
+          const touch = event.changedTouches[0];
+          const dx = touch.clientX - touchStartX;
+          const dy = touch.clientY - touchStartY;
+          const elapsed = Date.now() - touchStartTime;
+          // Solo gestos horizontales claros; el desplazamiento vertical sigue intacto.
+          if (Math.abs(dx) < 65 || Math.abs(dx) < Math.abs(dy) * 1.35 || elapsed > 1200) return;
+          const currentIndex = swipeTabs.indexOf(state.activeTab);
+          if (currentIndex < 0) return;
+          const nextIndex = currentIndex + (dx < 0 ? 1 : -1);
+          if (nextIndex < 0 || nextIndex >= swipeTabs.length) return;
+          showTab(swipeTabs[nextIndex]);
+        }, { passive: true, capture: true });
+        document.addEventListener('touchcancel', () => { touchAllowed = false; }, { passive: true, capture: true });
+      })();
+
       document.getElementById("global-home-return")?.addEventListener("click", () => {
         showTab("inicio");
       });
