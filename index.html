@@ -5973,6 +5973,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             const t = line.trim();
             let m;
             if ((m = t.match(/^Autor(?:\.|:)?\s*(.*)$/i))) { author = m[1].trim(); continue; }
+            // Read an explicitly supplied key before trying to infer it from chord symbols.
+            if ((m = t.match(/^(?:Tono|Tonalidad|Key)\s*:\s*(.+)$/i))) { key = m[1].trim(); continue; }
             if ((m = t.match(/^Tiempo litúrgico:\s*([^|]+)(?:\|\s*Momento:\s*(.*))?$/i))) {
               season = m[1].trim() || season;
               if (m[2]) moment = m[2].trim().split('(')[0].trim() || moment;
@@ -5982,7 +5984,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             body.push(line);
           }
           const lyrics = body.join('\n').trim();
-          key = inferBulkKey(lyrics);
+          key = key || inferBulkKey(lyrics);
           return { title: hit[2].trim(), author, moment: normalizeBulkMoment(moment), season: normalizeBulkSeason(season), key, lyrics, published: false };
         }).filter(x => x.title && x.lyrics);
       }
