@@ -5109,6 +5109,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         ).join('');
       }
 
+      // Los cantos no publicados solo son visibles para administradores.
+      function getAccessibleSongs() {
+        return state.isAdmin ? state.songs : state.songs.filter(song => song.published === true);
+      }
+
       // Orden del Cantoral: registro original o alfabético A-Z.
       let cantoralSortMode = 'registro';
       function renderSongsList() {
@@ -5123,7 +5128,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             renderSongsList();
           };
         }
-        const orderedSongs = [...state.songs];
+        const accessibleSongs = getAccessibleSongs();
+        const orderedSongs = [...accessibleSongs];
         if (cantoralSortMode === 'alfabetico') {
           orderedSongs.sort((a, b) => (a.title || '').localeCompare((b.title || ''), 'es', { sensitivity: 'base' }));
         }
@@ -5142,7 +5148,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         });
 
         document.getElementById('songs-count-txt').textContent =
-          `${state.songs.length} ${state.songs.length === 1 ? 'canto en repertorio' : 'cantos en repertorio'}`;
+          `${accessibleSongs.length} ${accessibleSongs.length === 1 ? 'canto en repertorio' : 'cantos en repertorio'}`;
 
         if (filtered.length === 0) {
           list.innerHTML = `<div class="empty-state">No se encontraron cantos con esos filtros.</div>`;
@@ -6406,7 +6412,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           const q = document.getElementById('pk-search').value.trim().toLowerCase();
           const m = document.getElementById('pk-moment').value;
 
-          const items = state.songs.filter(s => {
+          const items = getAccessibleSongs().filter(s => {
             const mOk = m === 'Todos' || s.moment === m;
             const qOk = !q || s.title.toLowerCase().includes(q) || s.lyrics.toLowerCase().includes(q);
             return mOk && qOk;
@@ -6916,6 +6922,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function openVisor(songId, listId = null, listIdx = 0) {
         closeAllFloatingTools();
+        if (!getAccessibleSongs().some(song => song.id === songId)) {
+          showToast('Este canto no está publicado o no tienes permiso para verlo.');
+          return;
+        }
         state.visorSongId = songId;
         state.visorListId = listId;
         state.visorListIndex = listIdx;
@@ -6926,10 +6936,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function renderVisor() {
-        const song = state.songs.find(s => s.id === state.visorSongId) || state.songs[0];
+        const accessibleSongs = getAccessibleSongs();
+        const song = accessibleSongs.find(s => s.id === state.visorSongId) || accessibleSongs[0];
         const sheet = document.getElementById('visor-sheet');
         if (!song) {
-          sheet.innerHTML = `<div class="empty-state">No hay cantos en el cantoral.</div>`;
+          sheet.innerHTML = `<div class="empty-state">No hay cantos publicados disponibles.</div>`;
           return;
         }
         state.visorSongId = song.id;
