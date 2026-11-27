@@ -5007,7 +5007,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           if (coordinatorKnownInvitationIds === null) {
             // Al entrar a la aplicación, avisar también de las invitaciones que ya existían.
             const currentUserId = state.supabaseSession?.user?.id;
-            if (notifyInitial && invitations.length && currentUserId &&
+            // Si la primera consulta falló, el siguiente ciclo llega con notifyNew.
+            // Al seguir sin una línea base, también debe poder emitir el aviso inicial.
+            if ((notifyInitial || notifyNew) && invitations.length && currentUserId &&
                 coordinatorInvitationInitialAlertedUserId !== currentUserId) {
               showToast(invitations.length === 1
                 ? `Tienes una invitación a la sesión «${invitations[0].name}».`
