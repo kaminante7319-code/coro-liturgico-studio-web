@@ -4342,15 +4342,51 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             showToast('No se encontró la sesión o no tienes permiso para verla.');
             return;
           }
+          let coordinatorSongRows = [];
+          try {
+            coordinatorSongRows = await supabaseRequest(
+              '/rest/v1/cantos?select=id,titulo&order=titulo.asc' + (state.isAdmin ? '' : '&publicado=eq.true'),
+              {}, true
+            );
+          } catch (songError) {
+            console.warn('No se pudo cargar el selector de cantos:', songError);
+          }
+          const isCurrentCoordinator = session.active_coordinator_id === state.supabaseSession?.user?.id;
           room.innerHTML = `
             <div class="row-between"><strong>🎼 Sala: ${esc(session.name)}</strong><span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'}</span></div>
             <p class="section-desc">${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control.' : (session.active_coordinator_id ? 'Otro coordinador tiene el control.' : 'La sesión no tiene coordinador activo.')}</p>
-            <p class="section-desc">Canto compartido: ${session.current_canto_id ? 'ID ' + esc(String(session.current_canto_id)) : 'Todavía no se ha seleccionado un canto.'}</p>
+            <p class="section-desc">Canto compartido: ${session.current_canto_id ? esc((coordinatorSongRows || []).find(song => String(song.id) === String(session.current_canto_id))?.titulo || ('ID ' + session.current_canto_id)) : 'Todavía no se ha seleccionado un canto.'}</p>
             <p class="section-desc">Revisión de repertorio: ${Number(session.song_revision) || 0}</p>
-            <div class="row" style="flex-wrap:wrap;gap:8px;">
+            ${session.status === 'active' && isCurrentCoordinator ? `
+              <label class="section-desc" for="coord-shared-song">Seleccionar canto para compartir</label>
+              <select id="coord-shared-song" class="form-control" style="width:100%;margin:6px 0 10px;">
+                <option value="">-- Selecciona un canto --</option>
+                ${(coordinatorSongRows || []).map(song => `<option value="${esc(String(song.id))}" ${String(song.id) === String(session.current_canto_id || '') ? 'selected' : ''}>${esc(song.titulo || 'Canto sin título')}</option>`).join('')}
+              </select>
+              <button type="button" class="btn btn-primary btn-sm" id="coord-share-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Compartir canto seleccionado</button>
+            ` : ''}
+            <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;">
               ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id && (state.isAdmin || state.isCoAdmin) ? `<button type="button" class="btn btn-primary btn-sm" id="coord-room-takeover">Tomar el control</button>` : ''}
               ${session.status === 'active' && (state.isAdmin || session.created_by === state.supabaseSession?.user?.id) ? `<button type="button" class="btn btn-danger btn-sm" id="coord-room-close">Cerrar sesión</button>` : ''}
             </div>`;
+          const shareSongButton = document.getElementById('coord-share-song');
+          if (shareSongButton) shareSongButton.onclick = async () => {
+            const selector = document.getElementById('coord-shared-song');
+            const selectedSongId = selector?.value;
+            if (!selectedSongId) { showToast('Selecciona un canto antes de compartirlo.'); return; }
+            shareSongButton.disabled = true;
+            try {
+              await supabaseRequest('/rest/v1/rpc/coordinator_set_current_song', {
+                method: 'POST',
+                body: JSON.stringify({ p_session_id: sessionId, p_canto_id: Number(selectedSongId) })
+              }, true);
+              showToast('Canto compartido actualizado.');
+              await enterCoordinatorSession(sessionId);
+            } catch (error) {
+              showToast('No se pudo compartir el canto: ' + (error.message || 'Error de Supabase.'));
+              shareSongButton.disabled = false;
+            }
+          };
           const takeover = document.getElementById('coord-room-takeover');
           if (takeover) takeover.onclick = async () => { await takeCoordinatorControl(sessionId); await enterCoordinatorSession(sessionId); };
           const close = document.getElementById('coord-room-close');
