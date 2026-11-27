@@ -4283,6 +4283,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               song.textContent = `Canto compartido: ${songRows?.[0]?.titulo || 'Canto seleccionado'}`;
             }
           }
+          if (document.getElementById('coord-session-program')) {
+            const songRows = await supabaseRequest('/rest/v1/cantos?select=id,app_id,titulo&order=titulo.asc', {}, true);
+            await loadCoordinatorSessionProgram(sessionId, songRows);
+          }
         } catch (error) { console.warn('No se pudo actualizar la sala coordinada:', error); }
       }
 
@@ -4471,6 +4475,69 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
       }
 
+      async function loadCoordinatorSessionProgram(sessionId, songRows = []) {
+        const panel = document.getElementById('coord-session-program');
+        if (!panel) return;
+        try {
+          const programs = await supabaseRequest(`/rest/v1/coordinator_session_programs?select=session_id,source_list_name,source_list_date,revision&session_id=eq.${encodeURIComponent(sessionId)}`, {}, true);
+          const program = programs?.[0];
+          if (!program) {
+            panel.innerHTML = '<p class="section-desc">Todavía no hay una lista programada compartida en esta sesión.</p>';
+            return;
+          }
+          const items = await supabaseRequest(`/rest/v1/coordinator_session_program_items?select=id,canto_id,position,origin,added_at&session_id=eq.${encodeURIComponent(sessionId)}&order=origin.asc,position.asc`, {}, true);
+          const byId = new Map((songRows || []).map(song => [String(song.id), song]));
+          const scheduled = (items || []).filter(item => item.origin === 'scheduled');
+          const extras = (items || []).filter(item => item.origin === 'extra');
+          const renderItems = (rows, label) => rows.length ? `<div class="section-desc" style="margin:8px 0 4px;">${label}</div>` + rows.map(item => {
+            const song = byId.get(String(item.canto_id));
+            const title = song?.titulo || `Canto ${item.canto_id}`;
+            return `<div class="song-card" style="margin:6px 0;"><div class="song-card-main"><strong>${item.origin === 'scheduled' ? item.position + '. ' : '＋ '}${esc(title)}</strong></div><div class="song-card-actions"><button type="button" class="btn btn-soft btn-sm" data-program-view="${esc(String(item.canto_id))}">Consultar</button>${state.isAdmin || state.isCoAdmin ? `<button type="button" class="btn btn-primary btn-sm" data-program-share="${esc(String(item.canto_id))}">Trabajar</button>` : ''}</div></div>`;
+          }).join('') : `<p class="section-desc">No hay cantos en este apartado.</p>`;
+          panel.innerHTML = `<div class="row-between"><strong>${esc(program.source_list_name)}</strong><span class="section-desc">Rev. ${Number(program.revision) || 1}</span></div>${program.source_list_date ? `<p class="section-desc">${esc(program.source_list_date)}</p>` : ''}${renderItems(scheduled, 'Lista programada')}${renderItems(extras, 'Agregados durante el ensayo')}`;
+          panel.querySelectorAll('[data-program-view]').forEach(button => button.onclick = () => {
+            const dbSong = byId.get(String(button.dataset.programView));
+            const localSong = state.songs.find(song => dbSong && String(song.id) === String(dbSong.app_id || dbSong.id));
+            if (localSong) openVisor(localSong.id);
+            else showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
+          });
+          panel.querySelectorAll('[data-program-share]').forEach(button => button.onclick = async () => {
+            try {
+              await supabaseRequest('/rest/v1/rpc/coordinator_set_current_song', { method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_canto_id: Number(button.dataset.programShare) }) }, true);
+              showToast('Canto de trabajo actualizado para todos.');
+              await refreshCoordinatorRoomState(sessionId);
+            } catch (error) { showToast('No se pudo seleccionar el canto: ' + (error.message || 'Error de Supabase.')); }
+          });
+        } catch (error) {
+          panel.innerHTML = `<p class="section-desc">No se pudo cargar la programación: ${esc(error.message || 'Error de consulta.')}</p>`;
+        }
+      }
+
+      async function publishCoordinatorSessionList(sessionId, songRows) {
+        const selector = document.getElementById('coord-program-list-select');
+        const list = state.lists.find(item => String(item.id) === String(selector?.value));
+        if (!list) { showToast('Selecciona una lista de ensayo.'); return; }
+        const idByAppId = new Map((songRows || []).map(song => [String(song.app_id || song.id), Number(song.id)]));
+        const cantoIds = list.songIds.map(id => idByAppId.get(String(id))).filter(Number.isFinite);
+        if (!cantoIds.length || cantoIds.length !== list.songIds.length) { showToast('No todos los cantos de esta lista están disponibles en el repertorio de Supabase.'); return; }
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_publish_session_program', { method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_list_name: list.name, p_list_date: list.date || '', p_canto_ids: cantoIds }) }, true);
+          showToast('Lista de ensayo publicada en la sesión.');
+          await loadCoordinatorSessionProgram(sessionId, songRows);
+        } catch (error) { showToast('No se pudo publicar la lista: ' + (error.message || 'Error de Supabase.')); }
+      }
+
+      async function addCoordinatorExtraSong(sessionId, songRows) {
+        const selector = document.getElementById('coord-extra-song-select');
+        const cantoId = Number(selector?.value);
+        if (!cantoId) { showToast('Selecciona un canto para agregar.'); return; }
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_add_session_extra_canto', { method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_canto_id: cantoId }) }, true);
+          showToast('Canto agregado a esta sesión. La lista original permanece intacta.');
+          await loadCoordinatorSessionProgram(sessionId, songRows);
+        } catch (error) { showToast('No se pudo agregar el canto: ' + (error.message || 'Error de Supabase.')); }
+      }
+
       async function enterCoordinatorSession(sessionId) {
         const room = document.getElementById('coord-session-room');
         if (!room) {
@@ -4494,13 +4561,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           let coordinatorSongRows = [];
           try {
             coordinatorSongRows = await supabaseRequest(
-              '/rest/v1/cantos?select=id,titulo&order=titulo.asc' + (state.isAdmin ? '' : '&publicado=eq.true'),
+              '/rest/v1/cantos?select=id,app_id,titulo&order=titulo.asc' + (state.isAdmin ? '' : '&publicado=eq.true'),
               {}, true
             );
           } catch (songError) {
             console.warn('No se pudo cargar el selector de cantos:', songError);
           }
           const isCurrentCoordinator = session.active_coordinator_id === state.supabaseSession?.user?.id;
+          const canManageProgram = Boolean(state.isAdmin || session.created_by === state.supabaseSession?.user?.id);
           room.innerHTML = `
             <div class="row-between"><strong>🎼 Sala: ${esc(session.name)}</strong><span class="section-desc" data-coord-room-status>${session.status === 'active' ? 'Activa' : 'Cerrada'}</span></div>
             <p class="section-desc" data-coord-room-coordinator>${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control.' : (session.active_coordinator_id ? 'Otro coordinador tiene el control.' : 'La sesión no tiene coordinador activo.')}</p>
@@ -4514,12 +4582,23 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               </select>
               <button type="button" class="btn btn-primary btn-sm" id="coord-share-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Compartir canto seleccionado</button>
             ` : ''}
+            <section class="card" style="margin-top:14px;padding:12px;">
+              <strong>📋 Programación del ensayo</strong>
+              <p class="section-desc">Comparte una lista que ya preparaste en «Mis listas». Los participantes podrán consultarla y abrir los cantos individualmente.</p>
+              ${session.status === 'active' && canManageProgram ? `<label class="section-desc" for="coord-program-list-select">Lista de ensayo</label><select id="coord-program-list-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona una lista --</option>${(state.lists || []).map(list => `<option value="${esc(String(list.id))}">${esc(list.name)} (${list.songIds.length} cantos)</option>`).join('')}</select><button type="button" class="btn btn-primary btn-sm" id="coord-publish-program" ${(state.lists || []).length ? '' : 'disabled'}>Publicar lista en esta sesión</button><div style="margin-top:12px;"><label class="section-desc" for="coord-extra-song-select">Agregar un canto fuera de la lista</label><select id="coord-extra-song-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona un canto --</option>${(coordinatorSongRows || []).map(song => `<option value="${esc(String(song.id))}">${esc(song.titulo || 'Canto sin título')}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" id="coord-add-extra-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Agregar canto a esta sesión</button></div>` : ''}
+              <div id="coord-session-program" style="margin-top:12px;"><p class="section-desc">Cargando programación…</p></div>
+            </section>
             <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;">
               ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id && (state.isAdmin || state.isCoAdmin) ? `<button type="button" class="btn btn-primary btn-sm" id="coord-room-takeover">Tomar el control</button>` : ''}
               ${session.status === 'active' && (state.isAdmin || session.created_by === state.supabaseSession?.user?.id) ? `<button type="button" class="btn btn-danger btn-sm" id="coord-room-close">Cerrar sesión</button>` : ''}
             </div>`;
           coordinatorSelectedSessionId = sessionId;
           startCoordinatorRealtime(sessionId);
+          await loadCoordinatorSessionProgram(sessionId, coordinatorSongRows);
+          const publishProgramButton = document.getElementById('coord-publish-program');
+          if (publishProgramButton) publishProgramButton.onclick = () => publishCoordinatorSessionList(sessionId, coordinatorSongRows);
+          const addExtraSongButton = document.getElementById('coord-add-extra-song');
+          if (addExtraSongButton) addExtraSongButton.onclick = () => addCoordinatorExtraSong(sessionId, coordinatorSongRows);
           const shareSongButton = document.getElementById('coord-share-song');
           if (shareSongButton) shareSongButton.onclick = async () => {
             const selector = document.getElementById('coord-shared-song');
