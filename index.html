@@ -2736,21 +2736,34 @@ body.home-active #view-inicio .home-brand-band span {
   #coord-session-room #coord-session-program .song-card-actions { grid-template-columns:1fr 1fr; }
   #coord-session-room .row { min-width:0; }
 }
-/* Navegación de sesión: visor como pantalla completa, independiente del modal */
-body.coordinator-session-visor-active { overflow:hidden !important; }
-body.coordinator-session-visor-active .top-bar,
-body.coordinator-session-visor-active .bottom-nav,
-body.coordinator-session-visor-active #global-home-return { display:none !important; }
-body.coordinator-session-visor-active #view-visor {
-  display:block !important; visibility:visible !important; position:fixed !important;
-  inset:0 !important; z-index:10050 !important; width:100vw !important; height:100dvh !important;
-  max-height:100dvh !important; overflow-y:auto !important; overflow-x:hidden !important;
-  margin:0 !important; padding: max(12px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom)) !important;
-  background:var(--bg, #101522) !important; box-sizing:border-box !important;
+/* Visor independiente para consultas iniciadas desde una sesión */
+#coordinator-session-visor-shell {
+  position:fixed !important; inset:0 !important; z-index:2147483000 !important;
+  display:flex !important; flex-direction:column !important;
+  width:100vw !important; height:100vh !important; height:100dvh !important;
+  max-width:none !important; max-height:none !important; margin:0 !important;
+  padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) !important;
+  overflow:hidden !important; background:var(--bg, #101522) !important;
 }
-body.coordinator-session-visor-active #modal-backdrop { display:none !important; visibility:hidden !important; pointer-events:none !important; }
-body.coordinator-session-visor-active #coord-return-to-session { display:flex !important; position:sticky; top:0; z-index:2; }
+#coordinator-session-visor-shell #view-visor {
+  display:block !important; visibility:visible !important; position:relative !important;
+  inset:auto !important; width:100% !important; height:100% !important; max-height:none !important;
+  flex:1 1 auto !important; overflow-y:auto !important; overflow-x:hidden !important;
+  margin:0 !important; padding:12px !important; box-sizing:border-box !important;
+}
+#coordinator-session-visor-shell #coord-return-to-session {
+  display:flex !important; visibility:visible !important; position:sticky !important;
+  top:0 !important; z-index:5 !important; width:100% !important; min-height:46px !important;
+}
+body.coordinator-session-visor-active { overflow:hidden !important; }
+body.coordinator-session-visor-active > .top-bar,
+body.coordinator-session-visor-active > .bottom-nav,
+body.coordinator-session-visor-active #global-home-return,
+body.coordinator-session-visor-active #modal-backdrop { display:none !important; }
 #coord-return-to-session[hidden] { display:none !important; }
+@media (max-width:600px) {
+  #coordinator-session-visor-shell #view-visor { padding:10px !important; }
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -4551,23 +4564,31 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
               return;
             }
-            // Abrir el visor fuera del modal: se mueve temporalmente al body para
-            // evitar que el contexto/transformación del contenedor de la app lo recorte.
+            // Abrir en una capa independiente de pantalla completa, fuera del modal y
+            // fuera del flujo de pestañas. La sala queda intacta en su contenedor original.
             const visor = document.getElementById('view-visor');
             if (!visor) { showToast('No se encontró la pantalla del visor.'); return; }
             coordinatorReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+            let shell = document.getElementById('coordinator-session-visor-shell');
+            if (!shell) {
+              shell = document.createElement('div');
+              shell.id = 'coordinator-session-visor-shell';
+              shell.setAttribute('role', 'dialog');
+              shell.setAttribute('aria-modal', 'true');
+              shell.setAttribute('aria-label', 'Consulta de canto');
+              document.body.appendChild(shell);
+            }
             if (!coordinatorVisorHome) {
               const placeholder = document.createComment('coordinator-visor-home');
               const parent = visor.parentNode;
               parent.insertBefore(placeholder, visor);
               coordinatorVisorHome = { parent, placeholder };
-              document.body.appendChild(visor);
             }
+            shell.appendChild(visor);
             coordinatorReturnSessionId = sessionId;
             const opened = openVisor(localSong.id);
             if (!opened) {
               coordinatorReturnSessionId = null;
-              document.body.classList.remove('coordinator-session-visor-active');
               const back = document.getElementById('coord-return-to-session');
               if (back) { back.hidden = true; back.style.display = 'none'; }
               if (coordinatorVisorHome?.placeholder?.parentNode) {
@@ -4575,11 +4596,13 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
                 coordinatorVisorHome.placeholder.remove();
                 coordinatorVisorHome = null;
               }
+              shell.remove();
               return;
             }
             document.body.classList.add('coordinator-session-visor-active');
+            shell.style.setProperty('display', 'flex', 'important');
             const back = document.getElementById('coord-return-to-session');
-            if (back) { back.hidden = false; back.style.display = 'flex'; }
+            if (back) { back.hidden = false; back.style.setProperty('display', 'flex', 'important'); }
             const coordinatorBackdrop = document.getElementById('modal-backdrop');
             if (coordinatorBackdrop) {
               coordinatorBackdrop.setAttribute('aria-hidden', 'true');
@@ -4759,23 +4782,24 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       function returnToCoordinatorSession() {
         const sessionId = coordinatorReturnSessionId;
         const visor = document.getElementById('view-visor');
+        const shell = document.getElementById('coordinator-session-visor-shell');
         coordinatorReturnSessionId = null;
         document.body.classList.remove('coordinator-session-visor-active');
         const back = document.getElementById('coord-return-to-session');
         if (back) { back.hidden = true; back.style.display = 'none'; }
-        // Cambiar de vista antes de devolver el visor a su contenedor original.
-        showTab('ensayo');
         if (visor && coordinatorVisorHome?.placeholder?.parentNode) {
           coordinatorVisorHome.placeholder.parentNode.insertBefore(visor, coordinatorVisorHome.placeholder);
           coordinatorVisorHome.placeholder.remove();
           coordinatorVisorHome = null;
         }
+        if (shell) shell.remove();
         const coordinatorBackdrop = document.getElementById('modal-backdrop');
         if (coordinatorBackdrop) {
           coordinatorBackdrop.style.removeProperty('display');
           coordinatorBackdrop.classList.remove('hidden');
           coordinatorBackdrop.setAttribute('aria-hidden', 'false');
         }
+        showTab('ensayo');
         const room = document.getElementById('coord-session-room');
         if (room && sessionId === coordinatorSelectedSessionId) room.style.display = 'flex';
         requestAnimationFrame(() => window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'instant' }));
@@ -4790,6 +4814,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           coordinatorVisorHome.placeholder.remove();
           coordinatorVisorHome = null;
         }
+        document.getElementById('coordinator-session-visor-shell')?.remove();
         coordinatorReturnSessionId = null;
         document.body.classList.remove('coordinator-session-visor-active');
         const back = document.getElementById('coord-return-to-session');
