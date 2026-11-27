@@ -4965,11 +4965,27 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         if (!state.supabaseSession?.access_token) return [];
         const currentUserId = state.supabaseSession.user?.id;
         if (!currentUserId) return [];
-        const rows = await supabaseRequest(
-          '/rest/v1/coordinator_sessions?select=id,name,status,active_coordinator_id,created_by,created_at&status=eq.active&order=created_at.desc',
+
+        // Una invitación existe cuando el usuario tiene una membresía activa
+        // en coordinator_participants. No inferimos invitaciones por sesiones
+        // creadas por otras personas: eso mostraba sesiones ajenas o ninguna.
+        const memberships = await supabaseRequest(
+          `/rest/v1/coordinator_participants?select=session_id&user_id=eq.${encodeURIComponent(currentUserId)}&active=eq.true`,
           {}, true
         );
-        return (rows || []).filter(session => session.created_by && session.created_by !== currentUserId);
+        const sessionIds = [...new Set((memberships || [])
+          .map(row => row.session_id)
+          .filter(Boolean)
+          .map(String))];
+
+        if (!sessionIds.length) return [];
+
+        const idFilter = sessionIds.map(id => encodeURIComponent(id)).join(',');
+        const sessions = await supabaseRequest(
+          `/rest/v1/coordinator_sessions?select=id,name,status,active_coordinator_id,created_by,created_at&id=in.(${idFilter})&status=eq.active&order=created_at.desc`,
+          {}, true
+        );
+        return sessions || [];
       }
 
       function updateCoordinatorInvitationCount(count) {
