@@ -4537,25 +4537,31 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           panel.innerHTML = `<div class="row-between"><strong>${esc(program.source_list_name)}</strong><span class="section-desc">Rev. ${Number(program.revision) || 1}</span></div>${program.source_list_date ? `<p class="section-desc">${esc(program.source_list_date)}</p>` : ''}${renderItems(scheduled, 'Lista programada')}${renderItems(extras, 'Agregados durante el ensayo')}`;
           panel.querySelectorAll('[data-program-view]').forEach(button => button.onclick = () => {
             const dbSong = byId.get(String(button.dataset.programView));
-            const localSong = state.songs.find(song => dbSong && String(song.id) === String(dbSong.app_id || dbSong.id));
-            if (localSong) {
-              // Guardar el contexto de la sala y cambiar a una pantalla completa de canto.
-              coordinatorReturnSessionId = sessionId;
-              coordinatorReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-              const room = document.getElementById('coord-session-room');
-              if (room) room.style.display = 'none';
-              // La sala vive dentro del modal del coordinador. Ocultamos el
-              // backdrop sin destruir su DOM para que el visor sea la única
-              // pantalla visible y podamos restaurar la sala al regresar.
-              // Cambiar a una vista de sesión aislada: el modal se conserva en DOM,
-              // pero el visor pasa a ocupar toda la pantalla del dispositivo.
-              const coordinatorBackdrop = document.getElementById('modal-backdrop');
-              if (coordinatorBackdrop) coordinatorBackdrop.setAttribute('aria-hidden', 'true');
-              document.body.classList.add('coordinator-session-visor-active');
-              const back = document.getElementById('coord-return-to-session');
-              if (back) { back.hidden = false; back.style.display = 'flex'; }
-              openVisor(localSong.id);
-            } else showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
+            if (!dbSong) {
+              showToast('No se encontró el canto en el repertorio de la sesión.');
+              return;
+            }
+            const appId = dbSong.app_id ?? dbSong.id;
+            const normalizeTitle = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase();
+            const localSong = state.songs.find(song => String(song.id) === String(appId))
+              || state.songs.find(song => normalizeTitle(song.title) === normalizeTitle(dbSong.titulo));
+            if (!localSong) {
+              showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
+              return;
+            }
+            // Establecer el contexto de regreso solo después de confirmar que el visor puede abrirse.
+            const opened = openVisor(localSong.id);
+            if (!opened) return;
+            coordinatorReturnSessionId = sessionId;
+            coordinatorReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+            document.body.classList.add('coordinator-session-visor-active');
+            const back = document.getElementById('coord-return-to-session');
+            if (back) { back.hidden = false; back.style.display = 'flex'; }
+            const coordinatorBackdrop = document.getElementById('modal-backdrop');
+            if (coordinatorBackdrop) {
+              coordinatorBackdrop.setAttribute('aria-hidden', 'true');
+              coordinatorBackdrop.style.setProperty('display', 'none', 'important');
+            }
           });
           panel.querySelectorAll('[data-program-share]').forEach(button => button.onclick = async () => {
             try {
@@ -4744,8 +4750,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         showTab('ensayo');
         const coordinatorBackdrop = document.getElementById('modal-backdrop');
         if (coordinatorBackdrop) {
-          coordinatorBackdrop.classList.remove('hidden');
           coordinatorBackdrop.style.removeProperty('display');
+          coordinatorBackdrop.classList.remove('hidden');
           coordinatorBackdrop.setAttribute('aria-hidden', 'false');
         }
         const room = document.getElementById('coord-session-room');
@@ -7779,22 +7785,26 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function openVisor(songId, listId = null, listIdx = 0) {
         closeAllFloatingTools();
-        if (!getAccessibleSongs().some(song => song.id === songId)) {
+        const accessibleSongs = getAccessibleSongs();
+        const targetSong = accessibleSongs.find(song => String(song.id) === String(songId));
+        if (!targetSong) {
           showToast('Este canto no está publicado o no tienes permiso para verlo.');
-          return;
+          return false;
         }
-        state.visorSongId = songId;
+        state.visorSongId = targetSong.id;
         state.visorListId = listId;
         state.visorListIndex = listIdx;
         state.transpose = 0;
         state.capo = 0;
-        document.getElementById('visor-capo-select').value = '0';
+        const capoSelect = document.getElementById('visor-capo-select');
+        if (capoSelect) capoSelect.value = '0';
         showTab('visor');
+        return true;
       }
 
       function renderVisor() {
         const accessibleSongs = getAccessibleSongs();
-        const song = accessibleSongs.find(s => s.id === state.visorSongId) || accessibleSongs[0];
+        const song = accessibleSongs.find(s => String(s.id) === String(state.visorSongId)) || accessibleSongs[0];
         const sheet = document.getElementById('visor-sheet');
         if (!song) {
           sheet.innerHTML = `<div class="empty-state">No hay cantos publicados disponibles.</div>`;
