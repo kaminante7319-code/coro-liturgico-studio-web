@@ -2714,6 +2714,28 @@ body.home-active #view-inicio .home-brand-band span {
   background: #67e8f9 !important;
   border-color: #a5f3fc !important;
 }
+
+/* Coro Liturgico Studio: sala de ensayo mobile-first */
+#coord-session-room { min-width:0; width:100%; box-sizing:border-box; }
+#coord-session-room .card { min-width:0; box-sizing:border-box; }
+#coord-session-room #coord-session-program { display:flex; flex-direction:column; gap:8px; min-width:0; }
+#coord-session-room #coord-session-program .song-card { display:flex; flex-direction:column; align-items:stretch; gap:10px; padding:12px; border-radius:12px; min-width:0; }
+#coord-session-room #coord-session-program .song-card-main { min-width:0; overflow-wrap:anywhere; }
+#coord-session-room #coord-session-program .song-card-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:100%; }
+#coord-session-room #coord-session-program .song-card-actions .btn { width:100%; min-height:42px; white-space:normal; }
+#coord-session-room #coord-program-list-select,
+#coord-session-room #coord-extra-song-select { width:100%; min-width:0; min-height:46px; box-sizing:border-box; }
+#coord-session-room #coord-publish-program,
+#coord-session-room #coord-add-extra-song { width:100%; min-height:44px; }
+#coord-session-room [data-coord-room-song] { overflow-wrap:anywhere; }
+@media (max-width: 600px) {
+  #coord-session-room { padding:12px !important; gap:10px !important; }
+  #coord-session-room .card { padding:12px !important; margin-top:8px !important; }
+  #coord-session-room .section-title { font-size:1.05rem; line-height:1.3; }
+  #coord-session-room .section-desc { line-height:1.45; }
+  #coord-session-room #coord-session-program .song-card-actions { grid-template-columns:1fr 1fr; }
+  #coord-session-room .row { min-width:0; }
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -4280,7 +4302,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             if (!session.current_canto_id) song.textContent = 'Canto compartido: Todavía no se ha seleccionado un canto.';
             else {
               const songRows = await supabaseRequest(`/rest/v1/cantos?select=id,titulo&id=eq.${encodeURIComponent(session.current_canto_id)}`, {}, true);
-              song.textContent = `Canto compartido: ${songRows?.[0]?.titulo || 'Canto seleccionado'}`;
+              song.textContent = `Canto de trabajo compartido: ${songRows?.[0]?.titulo || 'Canto seleccionado'}`;
             }
           }
           if (document.getElementById('coord-session-program')) {
@@ -4617,19 +4639,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           room.innerHTML = `
             <div class="row-between"><strong>🎼 Sala: ${esc(session.name)}</strong><span class="section-desc" data-coord-room-status>${session.status === 'active' ? 'Activa' : 'Cerrada'}</span></div>
             <p class="section-desc" data-coord-room-coordinator>${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control.' : (session.active_coordinator_id ? 'Otro coordinador tiene el control.' : 'La sesión no tiene coordinador activo.')}</p>
-            <p class="section-desc" data-coord-room-song>Canto compartido: ${session.current_canto_id ? esc((coordinatorSongRows || []).find(song => String(song.id) === String(session.current_canto_id))?.titulo || ('ID ' + session.current_canto_id)) : 'Todavía no se ha seleccionado un canto.'}</p>
-            <p class="section-desc">Revisión de repertorio: ${Number(session.song_revision) || 0}</p>
-            ${session.status === 'active' && isCurrentCoordinator ? `
-              <label class="section-desc" for="coord-shared-song">Seleccionar canto para compartir</label>
-              <select id="coord-shared-song" class="form-control" style="width:100%;margin:6px 0 10px;">
-                <option value="">-- Selecciona un canto --</option>
-                ${(coordinatorSongRows || []).map(song => `<option value="${esc(String(song.id))}" ${String(song.id) === String(session.current_canto_id || '') ? 'selected' : ''}>${esc(song.titulo || 'Canto sin título')}</option>`).join('')}
-              </select>
-              <button type="button" class="btn btn-primary btn-sm" id="coord-share-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Compartir canto seleccionado</button>
-            ` : ''}
+            <p class="section-desc" data-coord-room-revision>Revisión de repertorio: ${Number(session.song_revision) || 0}</p>
             <section class="card" style="margin-top:14px;padding:12px;">
-              <strong>📋 Programación del ensayo</strong>
-              <p class="section-desc">Comparte una lista que ya preparaste en «Mis listas». Los participantes podrán consultarla y abrir los cantos individualmente.</p>
+              <strong>📋 Ensayo y cantos compartidos</strong>
+              <p class="section-desc" data-coord-room-song style="margin:8px 0;">Canto de trabajo compartido: ${session.current_canto_id ? esc((coordinatorSongRows || []).find(song => String(song.id) === String(session.current_canto_id))?.titulo || ('ID ' + session.current_canto_id)) : 'Todavía no se ha seleccionado un canto.'}</p>
+              <p class="section-desc">La lista programada y los cantos agregados se administran aquí. «Consultar» abre el canto individualmente; «Trabajar» lo comparte con todos.</p>
               ${session.status === 'active' && canManageProgram ? `<label class="section-desc" for="coord-program-list-select">Lista de ensayo</label><select id="coord-program-list-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona una lista --</option>${(state.lists || []).map(list => `<option value="${esc(String(list.id))}">${esc(list.name)} (${list.songIds.length} cantos)</option>`).join('')}</select><button type="button" class="btn btn-primary btn-sm" id="coord-publish-program" ${(state.lists || []).length ? '' : 'disabled'}>Publicar lista en esta sesión</button><p id="coord-program-publish-status" class="section-desc" role="status" aria-live="polite" style="display:none;white-space:normal;overflow-wrap:anywhere;margin:8px 0;"></p><div style="margin-top:12px;"><label class="section-desc" for="coord-extra-song-select">Agregar un canto fuera de la lista</label><select id="coord-extra-song-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona un canto --</option>${(coordinatorSongRows || []).map(song => `<option value="${esc(String(song.id))}">${esc(song.titulo || 'Canto sin título')}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" id="coord-add-extra-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Agregar canto a esta sesión</button></div>` : ''}
               <div id="coord-session-program" style="margin-top:12px;"><p class="section-desc">Cargando programación…</p></div>
             </section>
@@ -4645,24 +4659,6 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           if (publishProgramButton) publishProgramButton.onclick = () => publishCoordinatorSessionList(sessionId, coordinatorSongRows);
           const addExtraSongButton = document.getElementById('coord-add-extra-song');
           if (addExtraSongButton) addExtraSongButton.onclick = () => addCoordinatorExtraSong(sessionId, coordinatorSongRows);
-          const shareSongButton = document.getElementById('coord-share-song');
-          if (shareSongButton) shareSongButton.onclick = async () => {
-            const selector = document.getElementById('coord-shared-song');
-            const selectedSongId = selector?.value;
-            if (!selectedSongId) { showToast('Selecciona un canto antes de compartirlo.'); return; }
-            shareSongButton.disabled = true;
-            try {
-              await supabaseRequest('/rest/v1/rpc/coordinator_set_current_song', {
-                method: 'POST',
-                body: JSON.stringify({ p_session_id: sessionId, p_canto_id: Number(selectedSongId) })
-              }, true);
-              showToast('Canto compartido actualizado.');
-              await enterCoordinatorSession(sessionId);
-            } catch (error) {
-              showToast('No se pudo compartir el canto: ' + (error.message || 'Error de Supabase.'));
-              shareSongButton.disabled = false;
-            }
-          };
           const takeover = document.getElementById('coord-room-takeover');
           if (takeover) takeover.onclick = async () => { await takeCoordinatorControl(sessionId); await enterCoordinatorSession(sessionId); };
           const close = document.getElementById('coord-room-close');
