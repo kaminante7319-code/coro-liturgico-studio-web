@@ -4360,24 +4360,63 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const results = document.getElementById('coord-invite-results');
         const status = document.getElementById('coord-participant-status');
         const query = (input?.value || '').trim();
-        if (query.length < 3) { if (status) status.textContent = 'Escribe al menos 3 caracteres del correo electrónico.'; return; }
         button.disabled = true;
-        if (status) status.textContent = 'Buscando cuentas autorizadas…';
+        if (status) status.textContent = query ? 'Buscando integrantes…' : 'Cargando directorio de integrantes…';
         if (results) results.innerHTML = '';
         try {
           const rows = await supabaseRequest('/rest/v1/rpc/coordinator_search_invitable_users', {
             method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_query: query })
           }, true);
           if (!Array.isArray(rows) || !rows.length) {
-            if (status) status.textContent = 'No encontramos cuentas activas disponibles con ese correo.';
+            if (status) status.textContent = 'No hay cuentas activas disponibles para agregar.';
             return;
           }
-          if (status) status.textContent = `Resultados encontrados: ${rows.length}. Selecciona a quién agregar.`;
-          results.innerHTML = rows.map(row => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid var(--border);border-radius:10px;"><span style="font-size:13px;overflow-wrap:anywhere;">${esc(row.email || 'Cuenta autorizada')}</span><button type="button" class="btn btn-primary btn-sm" data-coord-invite-user="${esc(row.user_id)}">Agregar</button></div>`).join('');
-          results.querySelectorAll('[data-coord-invite-user]').forEach(btn => btn.addEventListener('click', () => inviteCoordinatorParticipant(sessionId, btn.dataset.coordInviteUser, btn)));
+          if (status) status.textContent = `Integrantes disponibles: ${rows.length}. Marca a quienes deseas agregar.`;
+          results.innerHTML = `
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button type="button" class="btn btn-secondary btn-sm" id="coord-select-all">Seleccionar todos</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="coord-clear-all">Limpiar selección</button>
+              <span class="section-desc" id="coord-selected-count">0 seleccionados</span>
+            </div>
+            <div id="coord-directory-rows" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto;">
+              ${rows.map((row,i)=>`<label style="display:flex;align-items:center;gap:10px;padding:9px;border:1px solid var(--border);border-radius:10px;cursor:pointer;"><input type="checkbox" class="coord-directory-check" value="${esc(row.user_id)}" style="width:18px;height:18px;accent-color:var(--primary);"><span style="font-size:13px;overflow-wrap:anywhere;">${esc(row.email || 'Cuenta autorizada')}</span></label>`).join('')}
+            </div>
+            <button type="button" class="btn btn-primary" id="coord-add-selected">Agregar seleccionados</button>`;
+          const checks = [...results.querySelectorAll('.coord-directory-check')];
+          const count = results.querySelector('#coord-selected-count');
+          const updateCount = () => { count.textContent = `${checks.filter(c=>c.checked).length} seleccionados`; };
+          checks.forEach(c=>c.addEventListener('change',updateCount));
+          results.querySelector('#coord-select-all').onclick=()=>{checks.forEach(c=>c.checked=true);updateCount();};
+          results.querySelector('#coord-clear-all').onclick=()=>{checks.forEach(c=>c.checked=false);updateCount();};
+          results.querySelector('#coord-add-selected').onclick=()=>inviteSelectedCoordinatorParticipants(sessionId);
         } catch (error) {
-          if (status) status.textContent = 'No se pudo buscar: ' + (error.message || 'Error de Supabase.');
+          if (status) status.textContent = 'No se pudo cargar el directorio: ' + (error.message || 'Error de Supabase.');
         } finally { button.disabled = false; }
+      }
+
+      async function inviteSelectedCoordinatorParticipants(sessionId) {
+        const results = document.getElementById('coord-invite-results');
+        const status = document.getElementById('coord-participant-status');
+        const selected = [...(results?.querySelectorAll('.coord-directory-check:checked') || [])].map(c=>c.value);
+        if (!selected.length) { if(status) status.textContent='Selecciona al menos un integrante.'; return; }
+        const addButton = document.getElementById('coord-add-selected');
+        if (addButton) addButton.disabled = true;
+        let added = 0;
+        try {
+          for (const userId of selected) {
+            await supabaseRequest('/rest/v1/rpc/coordinator_invite_participant', {
+              method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_user_id: userId })
+            }, true);
+            added++;
+          }
+          showToast(`${added} participante(s) agregado(s) a la sesión.`);
+          await loadCoordinatorParticipants(sessionId);
+          await searchCoordinatorInvitees(sessionId);
+        } catch (error) {
+          if (status) status.textContent = `Se agregaron ${added}; no se pudo completar el resto: ${error.message || 'Error de Supabase.'}`;
+          if (addButton) addButton.disabled = false;
+          await loadCoordinatorParticipants(sessionId);
+        }
       }
 
       async function inviteCoordinatorParticipant(sessionId, userId, button) {
@@ -4639,8 +4678,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           <section style="display:flex;flex-direction:column;gap:8px;"><strong>Mis sesiones</strong><div id="coord-module-status" class="section-desc" role="status">Preparando sesiones…</div><div id="coord-session-list" style="display:flex;flex-direction:column;gap:8px;"></div><button type="button" id="coord-refresh-sessions" class="btn btn-secondary btn-sm">Actualizar sesiones</button></section>
           <section id="coord-session-room" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"></section>
           <section id="coord-participant-panel" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);">
-            <strong>👥 Administrar participantes</strong><p class="section-desc">Busca por correo electrónico a una persona que ya tenga una cuenta autorizada y activa en la aplicación.</p>
-            <label class="field-label" for="coord-invite-search">Correo electrónico</label><div style="display:flex;gap:8px;align-items:center;"><input id="coord-invite-search" class="input" type="search" autocomplete="off" placeholder="nombre@correo.com" style="flex:1;min-width:0;" /><button id="coord-invite-search-button" type="button" class="btn btn-primary">Buscar</button></div>
+            <strong>👥 Administrar participantes</strong><p class="section-desc">Abre el directorio, marca uno o varios integrantes autorizados y agrégalos a esta sesión.</p>
+            <label class="field-label" for="coord-invite-search">Filtrar por correo (opcional)</label><div style="display:flex;gap:8px;align-items:center;"><input id="coord-invite-search" class="input" type="search" autocomplete="off" placeholder="Buscar correo…" style="flex:1;min-width:0;" /><button id="coord-invite-search-button" type="button" class="btn btn-primary">Mostrar directorio</button></div>
             <div id="coord-invite-results" style="display:flex;flex-direction:column;gap:6px;"></div>
             <div id="coord-participant-status" class="section-desc" role="status">Selecciona una sesión para consultar participantes.</div><div id="coord-participant-list" style="display:flex;flex-direction:column;gap:6px;"></div>
           </section>
