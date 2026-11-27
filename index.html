@@ -4523,8 +4523,16 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           panel.querySelectorAll('[data-program-view]').forEach(button => button.onclick = () => {
             const dbSong = byId.get(String(button.dataset.programView));
             const localSong = state.songs.find(song => dbSong && String(song.id) === String(dbSong.app_id || dbSong.id));
-            if (localSong) { coordinatorReturnSessionId = sessionId; coordinatorReturnScrollY = window.scrollY || 0; openVisor(localSong.id); const back = document.getElementById('coord-return-to-session'); if (back) back.style.display = 'block'; }
-            else showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
+            if (localSong) {
+              // Guardar el contexto de la sala y cambiar a una pantalla completa de canto.
+              coordinatorReturnSessionId = sessionId;
+              coordinatorReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+              const room = document.getElementById('coord-session-room');
+              if (room) room.style.display = 'none';
+              const back = document.getElementById('coord-return-to-session');
+              if (back) back.style.display = 'block';
+              openVisor(localSong.id);
+            } else showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
           });
           panel.querySelectorAll('[data-program-share]').forEach(button => button.onclick = async () => {
             try {
@@ -4704,7 +4712,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         showTab('ensayo');
         const room = document.getElementById('coord-session-room');
         if (room && sessionId && coordinatorSelectedSessionId === sessionId) room.style.display = 'flex';
-        requestAnimationFrame(() => window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'smooth' }));
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'instant' });
+          requestAnimationFrame(() => window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'smooth' }));
+        });
       }
 
       function exitCoordinatorSessionRoom() {
