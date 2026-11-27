@@ -3329,6 +3329,71 @@ img,svg,canvas,video{background-color:transparent!important}
   transform: none !important;
 }
 </style>
+
+<style id="cls-etapa27-presentacion-legible">
+/* Etapa 27: homologación reforzada de pantallas, subpantallas y textos.
+   No modifica portada, visor musical, letras, acordes ni partituras. */
+:root{
+ --cls27-bg:#f5f2e9;--cls27-paper:#fffefa;--cls27-paper2:#f0ece1;
+ --cls27-navy:#193653;--cls27-ink:#202b38;--cls27-muted:#596575;
+ --cls27-gold:#b58a3b;--cls27-line:rgba(25,54,83,.22);
+}
+/* Lienzo de TODAS las vistas internas, incluso paneles que no usan .view-section. */
+body:not(.home-active) #app-shell,
+body:not(.home-active) .app-main,
+body:not(.home-active) main{background:var(--cls27-bg);color:var(--cls27-ink)}
+#app-shell .view-section:not(#view-inicio){
+ background:var(--cls27-bg)!important;color:var(--cls27-ink)!important;
+ font-family:var(--font-ui,Inter,system-ui,sans-serif)!important;
+}
+/* Jerarquía tipográfica y contraste de textos normales. */
+#app-shell .view-section:not(#view-inicio) :is(h1,h2,h3,h4,h5,.section-title,.panel-title,.card-title,.modal-title,.page-title){
+ color:var(--cls27-navy)!important;font-weight:750!important;line-height:1.25!important;
+ text-shadow:none!important;
+}
+#app-shell .view-section:not(#view-inicio) :is(p,label,.field-label,.help-text,.hint,.subtitle,.description,.empty-state,.form-text,th,td){
+ color:var(--cls27-ink)!important;text-shadow:none!important;
+}
+#app-shell .view-section:not(#view-inicio) :is(.muted,.text-muted,.text-secondary,.help-text,.hint,.subtitle,.secondary-text){color:var(--cls27-muted)!important}
+/* Superficies de tarjetas, listas, paneles, formularios y subpantallas. */
+#app-shell .view-section:not(#view-inicio) :is(.card,.song-card,.list-tab-card,.tool-quick-card,.session-card,.panel,.section-card,.settings-card,.member-card,.list-card,.tool-card,.admin-card,.content-card,.empty-state),
+#modal-card,.modal-content,.drawer-panel,.popover-content,.mini-tool-window{
+ background:var(--cls27-paper)!important;color:var(--cls27-ink)!important;
+ border-color:var(--cls27-line)!important;box-shadow:0 3px 14px rgba(25,43,63,.09)!important;
+}
+#app-shell .view-section:not(#view-inicio) :is(.card-header,.panel-header,.section-header,.list-header,.toolbar,.tab-bar){
+ background:var(--cls27-paper2)!important;color:var(--cls27-navy)!important;border-color:var(--cls27-line)!important;
+}
+/* Controles: contraste alto, texto legible y foco visible. */
+#app-shell .view-section:not(#view-inicio) :is(input:not([type=checkbox]):not([type=radio]),select,textarea),
+#modal-card :is(input:not([type=checkbox]):not([type=radio]),select,textarea),
+.modal-content :is(input:not([type=checkbox]):not([type=radio]),select,textarea),
+.drawer-panel :is(input:not([type=checkbox]):not([type=radio]),select,textarea){
+ background:#fffefa!important;color:#202b38!important;border:1px solid rgba(25,54,83,.34)!important;
+ border-radius:10px!important;opacity:1!important;text-shadow:none!important;
+}
+#app-shell .view-section:not(#view-inicio) :is(input,select,textarea)::placeholder,
+#modal-card :is(input,textarea)::placeholder{color:#667181!important;opacity:1!important}
+#app-shell .view-section:not(#view-inicio) :is(input,select,textarea):focus,
+#modal-card :is(input,select,textarea):focus{outline:0!important;border-color:var(--cls27-gold)!important;box-shadow:0 0 0 3px rgba(181,138,59,.2)!important}
+#app-shell .view-section:not(#view-inicio) :is(button,.btn,[role=button]){font-weight:650!important;text-shadow:none!important;border-radius:10px}
+#app-shell .view-section:not(#view-inicio) :is(.btn-primary,.primary-btn,.action-primary,.btn-main){background:var(--cls27-navy)!important;color:#fffefa!important;border-color:var(--cls27-navy)!important}
+#app-shell .view-section:not(#view-inicio) :is(.btn-secondary,.secondary-btn,.btn-outline,.action-secondary){background:#fffefa!important;color:var(--cls27-navy)!important;border-color:var(--cls27-line)!important}
+#app-shell .view-section:not(#view-inicio) :is(hr,.divider,.separator,table,th,td){border-color:var(--cls27-line)!important}
+#app-shell .view-section:not(#view-inicio) :is(th){color:var(--cls27-navy)!important;background:var(--cls27-paper2)!important}
+/* Excepciones: conservar el tratamiento propio de música y recursos gráficos. */
+#view-inicio,#view-visor,#atril-overlay,#print-sheet,#coordinator-session-visor-shell{color:inherit}
+#view-visor :is(.song-lyrics,.lyrics,.score-content,.music-score,.staff,.notation),
+#atril-overlay :is(.song-lyrics,.lyrics,.score-content,.music-score,.staff,.notation),
+#print-sheet :is(.song-lyrics,.lyrics,.score-content,.music-score,.staff,.notation){color:inherit!important}
+@media(max-width:700px){
+ #app-shell .view-section:not(#view-inicio) :is(.card,.panel,.section-card,.settings-card,.member-card,.list-card,.tool-card){min-width:0;border-radius:13px!important}
+ #app-shell .view-section:not(#view-inicio) :is(button,.btn,[role=button]){min-height:42px}
+ #app-shell .view-section:not(#view-inicio) :is(input,select){min-height:42px}
+ #app-shell .view-section:not(#view-inicio) table{display:block;max-width:100%;overflow-x:auto}
+}
+</style>
+
 </head>
 <body class="home-active">
   <button type="button" id="global-home-return" aria-label="Volver al menú principal" title="Volver al menú principal" style="display:none">⌂</button>
