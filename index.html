@@ -2756,10 +2756,8 @@ body.home-active #view-inicio .home-brand-band span {
   top:0 !important; z-index:5 !important; width:100% !important; min-height:46px !important;
 }
 body.coordinator-session-visor-active { overflow:hidden !important; }
-body.coordinator-session-visor-active > .top-bar,
-body.coordinator-session-visor-active > .bottom-nav,
-body.coordinator-session-visor-active #global-home-return,
-body.coordinator-session-visor-active #modal-backdrop { display:none !important; }
+body.coordinator-session-visor-active > *:not(#coordinator-session-visor-shell) { display:none !important; }
+body.coordinator-session-visor-active #coordinator-session-visor-shell { display:flex !important; visibility:visible !important; }
 #coord-return-to-session[hidden] { display:none !important; }
 @media (max-width:600px) {
   #coordinator-session-visor-shell #view-visor { padding:10px !important; }
@@ -4584,25 +4582,25 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               parent.insertBefore(placeholder, visor);
               coordinatorVisorHome = { parent, placeholder };
             }
+            // Navegación aislada: no llamar openVisor() porque ejecuta showTab('visor')
+            // y cambia la navegación global mientras la sala está abierta en un modal.
             shell.appendChild(visor);
             coordinatorReturnSessionId = sessionId;
-            const opened = openVisor(localSong.id);
-            if (!opened) {
-              coordinatorReturnSessionId = null;
-              const back = document.getElementById('coord-return-to-session');
-              if (back) { back.hidden = true; back.style.display = 'none'; }
-              if (coordinatorVisorHome?.placeholder?.parentNode) {
-                coordinatorVisorHome.placeholder.parentNode.insertBefore(visor, coordinatorVisorHome.placeholder);
-                coordinatorVisorHome.placeholder.remove();
-                coordinatorVisorHome = null;
-              }
-              shell.remove();
-              return;
-            }
+            state.visorSongId = localSong.id;
+            state.visorListId = null;
+            state.visorListIndex = 0;
+            state.transpose = 0;
+            state.capo = 0;
+            const capoSelect = document.getElementById('visor-capo-select');
+            if (capoSelect) capoSelect.value = '0';
+            state.activeTab = 'visor';
+            visor.classList.remove('hidden');
+            visor.style.setProperty('display', 'block', 'important');
             document.body.classList.add('coordinator-session-visor-active');
             shell.style.setProperty('display', 'flex', 'important');
             const back = document.getElementById('coord-return-to-session');
             if (back) { back.hidden = false; back.style.setProperty('display', 'flex', 'important'); }
+            renderVisor();
             const coordinatorBackdrop = document.getElementById('modal-backdrop');
             if (coordinatorBackdrop) {
               coordinatorBackdrop.setAttribute('aria-hidden', 'true');
@@ -4792,6 +4790,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           coordinatorVisorHome.placeholder.remove();
           coordinatorVisorHome = null;
         }
+        if (visor) visor.style.removeProperty('display');
         if (shell) shell.remove();
         const coordinatorBackdrop = document.getElementById('modal-backdrop');
         if (coordinatorBackdrop) {
