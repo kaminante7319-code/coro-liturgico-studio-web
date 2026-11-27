@@ -4834,10 +4834,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         try {
           state.supabaseCategories = await supabaseRequestAllRows('/rest/v1/categorias?select=id,nombre&order=nombre.asc');
           const fields = 'id,app_id,titulo,letra,autor,categoria_id,tiempo_liturgico,tono,cifrado,publicado,bpm,notas,audio_url,audio_name';
-          // Los usuarios consultan todos los cantos publicados; los no publicados
-          // siguen reservados para administración y coadministración.
-          const filter = admin ? '' : '&publicado=eq.true';
-          const rows = await supabaseRequestAllRows('/rest/v1/cantos?select=' + fields + filter + '&order=titulo.asc');
+          // El repertorio completo se consulta para todos los roles.
+          // Las acciones de gestión permanecen limitadas a admin/coadmin en la interfaz.
+          const rows = await supabaseRequestAllRows('/rest/v1/cantos?select=' + fields + '&order=titulo.asc');
           state.songs = (rows || []).map(mapSupabaseSong);
           if (state.songs.length) state.visorSongId = state.songs[0].id;
           else state.visorSongId = null;
@@ -6912,9 +6911,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         ).join('');
       }
 
-      // Los cantos no publicados solo son visibles para administradores.
+      // Todos los usuarios pueden navegar y consultar el repertorio completo.
+      // La gestión (crear, editar y eliminar) continúa protegida por canManageSongs().
       function getAccessibleSongs() {
-        return canManageSongs() ? state.songs : state.songs.filter(song => song.published === true);
+        return Array.isArray(state.songs) ? state.songs : [];
       }
 
       // Orden del Cantoral: registro original o alfabético A-Z.
