@@ -2900,6 +2900,7 @@ body.home-active #view-inicio .home-brand-band span {
     <!-- TAB 2: VISOR                                                        -->
     <!-- =================================================================== -->
     <section id="view-visor" class="view-section hidden">
+      <button type="button" id="coord-return-to-session" class="btn btn-secondary btn-sm" style="display:none;width:100%;margin:8px 0 12px;" onclick="returnToCoordinatorSession()">← Volver a la sesión</button>
       <button type="button" id="visor-options-toggle" class="btn btn-primary btn-sm visor-options-toggle" aria-expanded="false" aria-controls="visor-options-drawer">⚙️ Opciones del Visor</button>
       <aside id="visor-options-drawer" class="visor-options-drawer" aria-hidden="true">
         <div class="row-between"><div class="drawer-title">Herramientas del canto</div><button type="button" id="visor-options-close" class="mini-icon-btn" aria-label="Cerrar opciones">✕</button></div>
@@ -4272,6 +4273,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       // MODO COORDINADOR COMPARTIDO: sesiones y administración de participantes.
       let coordinatorSelectedSessionId = null;
+      let coordinatorReturnSessionId = null;
       let coordinatorRealtimeClient = null;
       let coordinatorRealtimeChannel = null;
       let coordinatorRealtimePoll = null;
@@ -4520,7 +4522,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           panel.querySelectorAll('[data-program-view]').forEach(button => button.onclick = () => {
             const dbSong = byId.get(String(button.dataset.programView));
             const localSong = state.songs.find(song => dbSong && String(song.id) === String(dbSong.app_id || dbSong.id));
-            if (localSong) openVisor(localSong.id);
+            if (localSong) { coordinatorReturnSessionId = sessionId; openVisor(localSong.id); const back = document.getElementById('coord-return-to-session'); if (back) back.style.display = 'block'; }
             else showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
           });
           panel.querySelectorAll('[data-program-share]').forEach(button => button.onclick = async () => {
@@ -4646,6 +4648,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               <p class="section-desc">La lista programada y los cantos agregados se administran aquí. «Consultar» abre el canto individualmente; «Trabajar» lo comparte con todos.</p>
               ${session.status === 'active' && canManageProgram ? `<label class="section-desc" for="coord-program-list-select">Lista de ensayo</label><select id="coord-program-list-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona una lista --</option>${(state.lists || []).map(list => `<option value="${esc(String(list.id))}">${esc(list.name)} (${list.songIds.length} cantos)</option>`).join('')}</select><button type="button" class="btn btn-primary btn-sm" id="coord-publish-program" ${(state.lists || []).length ? '' : 'disabled'}>Publicar lista en esta sesión</button><p id="coord-program-publish-status" class="section-desc" role="status" aria-live="polite" style="display:none;white-space:normal;overflow-wrap:anywhere;margin:8px 0;"></p><div style="margin-top:12px;"><label class="section-desc" for="coord-extra-song-select">Agregar un canto fuera de la lista</label><select id="coord-extra-song-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona un canto --</option>${(coordinatorSongRows || []).map(song => `<option value="${esc(String(song.id))}">${esc(song.titulo || 'Canto sin título')}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" id="coord-add-extra-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Agregar canto a esta sesión</button></div>` : ''}
               <div id="coord-session-program" style="margin-top:12px;"><p class="section-desc">Cargando programación…</p></div>
+              ${session.status === 'active' && canManageProgram ? `<button type="button" class="btn btn-danger btn-sm" id="coord-clear-session-content" style="width:100%;margin-top:12px;">Limpiar contenido de sesión</button><p class="section-desc" style="margin:4px 0 0;">Elimina la programación y los cantos agregados, pero conserva la sesión y sus participantes.</p>` : ''}
             </section>
             <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;">
               ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id && (state.isAdmin || state.isCoAdmin) ? `<button type="button" class="btn btn-primary btn-sm" id="coord-room-takeover">Tomar el control</button>` : ''}
@@ -4659,6 +4662,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           if (publishProgramButton) publishProgramButton.onclick = () => publishCoordinatorSessionList(sessionId, coordinatorSongRows);
           const addExtraSongButton = document.getElementById('coord-add-extra-song');
           if (addExtraSongButton) addExtraSongButton.onclick = () => addCoordinatorExtraSong(sessionId, coordinatorSongRows);
+          const clearContentButton = document.getElementById('coord-clear-session-content');
+          if (clearContentButton) clearContentButton.onclick = () => clearCoordinatorSessionContent(sessionId, coordinatorSongRows);
           const takeover = document.getElementById('coord-room-takeover');
           if (takeover) takeover.onclick = async () => { await takeCoordinatorControl(sessionId); await enterCoordinatorSession(sessionId); };
           const close = document.getElementById('coord-room-close');
@@ -4669,6 +4674,31 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           room.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           showToast('Error al abrir la sesión: ' + (error.message || 'Error de Supabase.'));
         }
+      }
+
+      async function clearCoordinatorSessionContent(sessionId, songRows) {
+        if (!confirm('¿Limpiar todo el contenido de esta sesión? Se eliminarán la lista programada y los cantos agregados durante el ensayo. La sesión y sus participantes se conservarán. Esta acción no se puede deshacer.')) return;
+        const button = document.getElementById('coord-clear-session-content');
+        if (button) button.disabled = true;
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_clear_session_program', { method: 'POST', body: JSON.stringify({ p_session_id: sessionId }) }, true);
+          showToast('Contenido de la sesión limpiado. La sesión y sus participantes se conservaron.');
+          await refreshCoordinatorRoomState(sessionId);
+          await loadCoordinatorSessionProgram(sessionId, songRows || []);
+          await refreshCoordinatorExtraSongOptions(sessionId, songRows || []);
+        } catch (error) {
+          showToast('No se pudo limpiar el contenido: ' + (error.message || 'Error de Supabase.'));
+          if (button) button.disabled = false;
+        }
+      }
+
+      function returnToCoordinatorSession() {
+        const sessionId = coordinatorReturnSessionId;
+        coordinatorReturnSessionId = null;
+        const back = document.getElementById('coord-return-to-session');
+        if (back) back.style.display = 'none';
+        showTab('ensayo');
+        if (sessionId) enterCoordinatorSession(sessionId);
       }
 
       async function closeCoordinatorSession(sessionId) {
