@@ -4745,12 +4745,34 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
       }
 
+      // Descarga todas las páginas disponibles de PostgREST; evita el límite
+      // máximo de filas por respuesta que puede ocultar parte del repertorio.
+      async function supabaseRequestAllRows(path, pageSize = 1000) {
+        const allRows = [];
+        let start = 0;
+        while (true) {
+          const page = await supabaseRequest(path, {
+            headers: {
+              Range: `${start}-${start + pageSize - 1}`,
+              'Range-Unit': 'items'
+            }
+          }, true);
+          const rows = Array.isArray(page) ? page : [];
+          allRows.push(...rows);
+          if (rows.length < pageSize) break;
+          start += pageSize;
+        }
+        return allRows;
+      }
+
       async function loadSupabaseSongs(admin = false) {
         try {
-          state.supabaseCategories = await supabaseRequest('/rest/v1/categorias?select=id,nombre&order=nombre.asc', {}, true);
+          state.supabaseCategories = await supabaseRequestAllRows('/rest/v1/categorias?select=id,nombre&order=nombre.asc');
           const fields = 'id,app_id,titulo,letra,autor,categoria_id,tiempo_liturgico,tono,cifrado,publicado,bpm,notas,audio_url,audio_name';
+          // Los usuarios consultan todos los cantos publicados; los no publicados
+          // siguen reservados para administración y coadministración.
           const filter = admin ? '' : '&publicado=eq.true';
-          const rows = await supabaseRequest('/rest/v1/cantos?select=' + fields + filter + '&order=titulo.asc', {}, true);
+          const rows = await supabaseRequestAllRows('/rest/v1/cantos?select=' + fields + filter + '&order=titulo.asc');
           state.songs = (rows || []).map(mapSupabaseSong);
           if (state.songs.length) state.visorSongId = state.songs[0].id;
           else state.visorSongId = null;
@@ -10321,5 +10343,91 @@ body.home-active #view-inicio .cls-home-subtitle span{width:clamp(26px,5vw,48px)
  body.home-active #view-inicio .cls-home-subtitle{font-size:12px!important}
 }
 </style>
+<style id="cls-etapa25-homologacion-global">
+/* Etapa 25: sistema visual común para todas las pantallas y subpantallas.
+   La portada aprobada (#view-inicio) y la lectura musical conservan su diseño propio. */
+:root{
+  --cls-ivory:#f6f4ee;
+  --cls-paper:#fffefa;
+  --cls-paper-soft:#f1eee5;
+  --cls-navy:#243b5a;
+  --cls-navy-deep:#172b46;
+  --cls-gold:#b88732;
+  --cls-gold-soft:rgba(184,135,50,.14);
+  --cls-line:rgba(36,59,90,.15);
+  --cls-ink:#202b38;
+  --cls-muted:#68717d;
+  --cls-card-shadow:0 3px 14px rgba(28,42,58,.07);
+  --cls-control-radius:11px;
+}
+/* Lienzo y tipografía coherentes en todas las vistas internas. */
+body:not(.home-active){background-color:var(--cls-ivory)!important;color:var(--cls-ink)}
+.view-section:not(#view-inicio){color:var(--cls-ink);font-family:var(--font-ui,Inter,system-ui,sans-serif)}
+.view-section:not(#view-inicio) :is(h1,h2,h3,h4,.section-title,.modal-title,.panel-title,.card-title){
+  color:var(--cls-navy)!important;font-family:var(--font-ui,Inter,system-ui,sans-serif)!important;
+  font-weight:700;letter-spacing:-.02em;line-height:1.22
+}
+.view-section:not(#view-inicio) :is(p,label,.field-label,.drawer-section-label,.help-text,.hint,.subtitle){
+  color:inherit;font-family:var(--font-ui,Inter,system-ui,sans-serif)
+}
+.view-section:not(#view-inicio) :is(.muted,.text-muted,.help-text,.hint,.subtitle){color:var(--cls-muted)!important}
+/* Superficies y contenedores: misma familia de tarjetas y paneles. */
+.view-section:not(#view-inicio) :is(.card,.song-card,.list-tab-card,.tool-quick-card,.session-card,.panel,.section-card,.settings-card,.member-card,.list-card,.tool-card),
+.modal-content,.drawer-panel,.popover-content{
+  background:var(--cls-paper)!important;border:1px solid var(--cls-line)!important;
+  border-radius:15px!important;box-shadow:var(--cls-card-shadow)!important;color:var(--cls-ink)
+}
+.view-section:not(#view-inicio) :is(.card-header,.panel-header,.section-header,.modal-header,.drawer-header){
+  color:var(--cls-navy);border-color:var(--cls-line)
+}
+/* Acciones y controles: azul profundo, acento dorado y estados legibles. */
+.view-section:not(#view-inicio) :is(button,.btn,[role="button"]),
+.modal-content :is(button,.btn),.drawer-panel :is(button,.btn){
+  border-radius:var(--cls-control-radius);font-family:var(--font-ui,Inter,system-ui,sans-serif);
+  font-weight:600;transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease
+}
+.view-section:not(#view-inicio) :is(.btn-primary,.primary-btn,.action-primary,.btn-main){
+  background:var(--cls-navy)!important;color:#fff!important;border:1px solid var(--cls-navy)!important
+}
+.view-section:not(#view-inicio) :is(.btn-secondary,.secondary-btn,.btn-outline,.action-secondary){
+  background:var(--cls-paper)!important;color:var(--cls-navy)!important;border:1px solid var(--cls-line)!important
+}
+.view-section:not(#view-inicio) :is(input,select,textarea),
+.modal-content :is(input,select,textarea),.drawer-panel :is(input,select,textarea){
+  background:var(--cls-paper)!important;color:var(--cls-ink)!important;
+  border:1px solid var(--cls-line)!important;border-radius:var(--cls-control-radius)!important;
+  font:inherit;max-width:100%
+}
+.view-section:not(#view-inicio) :is(input,select,textarea):focus,
+.modal-content :is(input,select,textarea):focus,.drawer-panel :is(input,select,textarea):focus{
+  border-color:var(--cls-gold)!important;box-shadow:0 0 0 3px var(--cls-gold-soft)!important;outline:0
+}
+.view-section:not(#view-inicio) :is(hr,.divider,.separator){border-color:var(--cls-line)!important}
+.view-section:not(#view-inicio) :is(table,th,td){border-color:var(--cls-line)}
+.view-section:not(#view-inicio) th{color:var(--cls-navy);font-weight:700}
+/* No imponer estilos de texto corrido a letras, partituras ni visor musical. */
+#view-visor :is(.song-lyrics,.lyrics,.score-content,.music-score,.staff,.notation),
+#view-cantoral :is(.song-lyrics,.lyrics,.score-content,.music-score,.staff,.notation){
+  font-family:var(--font-reading,system-ui,sans-serif)
+}
+/* Capas flotantes y ventanas mantienen el mismo lenguaje visual. */
+.modal-content,.drawer-panel{color:var(--cls-ink)}
+.modal-content :is(h1,h2,h3,h4,.modal-title),.drawer-panel :is(h1,h2,h3,h4,.panel-title){color:var(--cls-navy)!important}
+/* Adaptación uniforme para tablet y móvil. */
+@media(max-width:700px){
+  .view-section:not(#view-inicio) :is(.card,.song-card,.list-tab-card,.tool-quick-card,.session-card,.panel,.section-card,.settings-card,.member-card,.list-card,.tool-card){
+    border-radius:13px!important;min-width:0
+  }
+  .view-section:not(#view-inicio) :is(button,.btn,[role="button"]){min-height:40px}
+  .view-section:not(#view-inicio) :is(input,select){min-height:42px}
+  .view-section:not(#view-inicio) :is(textarea){min-height:88px}
+  .modal-content,.drawer-panel{max-width:calc(100vw - 18px)!important}
+  .view-section:not(#view-inicio) :is(table){display:block;max-width:100%;overflow-x:auto}
+}
+@media(prefers-reduced-motion:reduce){
+  .view-section:not(#view-inicio) *, .modal-content *, .drawer-panel *{transition:none!important;animation-duration:.01ms!important}
+}
+</style>
+
 </body>
 </html>
