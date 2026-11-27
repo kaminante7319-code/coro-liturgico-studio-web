@@ -4545,15 +4545,42 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
       }
 
+      async function refreshCoordinatorExtraSongOptions(sessionId, songRows) {
+        const selector = document.getElementById('coord-extra-song-select');
+        if (!selector) return;
+        const selectedBefore = selector.value;
+        const items = await supabaseRequest(`/rest/v1/coordinator_session_program_items?select=canto_id&session_id=eq.${encodeURIComponent(sessionId)}`, {}, true);
+        const alreadyInSession = new Set((items || []).map(item => String(item.canto_id)));
+        const available = (songRows || []).filter(song => !alreadyInSession.has(String(song.id)));
+        selector.innerHTML = '<option value="">-- Selecciona un canto --</option>' + available.map(song => `<option value="${esc(String(song.id))}">${esc(song.titulo || 'Canto sin título')}</option>`).join('');
+        if (available.some(song => String(song.id) === selectedBefore)) selector.value = selectedBefore;
+        selector.disabled = available.length === 0;
+        const button = document.getElementById('coord-add-extra-song');
+        if (button) button.disabled = available.length === 0;
+        selector.title = available.length ? `${available.length} cantos disponibles para agregar` : 'Todos los cantos visibles ya forman parte de esta sesión';
+      }
+
       async function addCoordinatorExtraSong(sessionId, songRows) {
         const selector = document.getElementById('coord-extra-song-select');
+        const button = document.getElementById('coord-add-extra-song');
         const cantoId = Number(selector?.value);
-        if (!cantoId) { showToast('Selecciona un canto para agregar.'); return; }
+        if (!cantoId) { showToast('Selecciona un canto disponible para agregar.'); return; }
+        if (button) button.disabled = true;
         try {
           await supabaseRequest('/rest/v1/rpc/coordinator_add_session_extra_canto', { method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_canto_id: cantoId }) }, true);
           showToast('Canto agregado a esta sesión. La lista original permanece intacta.');
           await loadCoordinatorSessionProgram(sessionId, songRows);
-        } catch (error) { showToast('No se pudo agregar el canto: ' + (error.message || 'Error de Supabase.')); }
+          await refreshCoordinatorExtraSongOptions(sessionId, songRows);
+        } catch (error) {
+          const message = error.message || 'Error de Supabase.';
+          if (/ya forma parte|already exists|duplicate/i.test(message)) {
+            await refreshCoordinatorExtraSongOptions(sessionId, songRows);
+            showToast('Ese canto ya está en la sesión. Actualicé el selector para mostrar solo los disponibles.');
+          } else {
+            showToast('No se pudo agregar el canto: ' + message);
+            if (button) button.disabled = false;
+          }
+        }
       }
 
       async function enterCoordinatorSession(sessionId) {
@@ -4613,6 +4640,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           coordinatorSelectedSessionId = sessionId;
           startCoordinatorRealtime(sessionId);
           await loadCoordinatorSessionProgram(sessionId, coordinatorSongRows);
+          await refreshCoordinatorExtraSongOptions(sessionId, coordinatorSongRows);
           const publishProgramButton = document.getElementById('coord-publish-program');
           if (publishProgramButton) publishProgramButton.onclick = () => publishCoordinatorSessionList(sessionId, coordinatorSongRows);
           const addExtraSongButton = document.getElementById('coord-add-extra-song');
