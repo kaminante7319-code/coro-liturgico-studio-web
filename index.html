@@ -2926,7 +2926,7 @@ body.coordinator-session-visor-active #coordinator-session-visor-shell { display
     <!-- TAB 2: VISOR                                                        -->
     <!-- =================================================================== -->
     <section id="view-visor" class="view-section hidden">
-      <button type="button" id="coord-return-to-session" class="btn btn-secondary btn-sm" hidden style="display:none;width:100%;margin:8px 0 12px;" onclick="returnToCoordinatorSession()">← Volver a la sesión</button>
+      <button type="button" id="coord-return-to-session" class="btn btn-secondary btn-sm" hidden style="display:none;width:100%;margin:8px 0 12px;">← Volver a la sesión</button>
       <button type="button" id="visor-options-toggle" class="btn btn-primary btn-sm visor-options-toggle" aria-expanded="false" aria-controls="visor-options-drawer">⚙️ Opciones del Visor</button>
       <aside id="visor-options-drawer" class="visor-options-drawer" aria-hidden="true">
         <div class="row-between"><div class="drawer-title">Herramientas del canto</div><button type="button" id="visor-options-close" class="mini-icon-btn" aria-label="Cerrar opciones">✕</button></div>
@@ -4301,6 +4301,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       let coordinatorSelectedSessionId = null;
       let coordinatorReturnSessionId = null;
       let coordinatorReturnScrollY = 0;
+      let coordinatorReturnModalScrollTop = 0;
       // Conserva el lugar original del visor para aislarlo del modal durante la consulta.
       let coordinatorVisorHome = null;
       let coordinatorRealtimeClient = null;
@@ -4567,6 +4568,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             const visor = document.getElementById('view-visor');
             if (!visor) { showToast('No se encontró la pantalla del visor.'); return; }
             coordinatorReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+            const modalCard = document.getElementById('modal-card');
+            coordinatorReturnModalScrollTop = modalCard ? modalCard.scrollTop : 0;
             let shell = document.getElementById('coordinator-session-visor-shell');
             if (!shell) {
               shell = document.createElement('div');
@@ -4801,7 +4804,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         showTab('ensayo');
         const room = document.getElementById('coord-session-room');
         if (room && sessionId === coordinatorSelectedSessionId) room.style.display = 'flex';
-        requestAnimationFrame(() => window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'instant' }));
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'auto' });
+          const modalCard = document.getElementById('modal-card');
+          if (modalCard) modalCard.scrollTop = coordinatorReturnModalScrollTop;
+        });
       }
 
       function exitCoordinatorSessionRoom() {
@@ -9213,6 +9220,10 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         setupSplashScreen();
         const brandLogoBtn = document.getElementById('btn-brand-logo');
         if (brandLogoBtn) brandLogoBtn.onclick = openAboutLogoModal;
+        // El visor vive dentro de una IIFE: el botón no puede invocar esta función
+        // mediante un onclick HTML global. Se enlaza aquí, dentro del mismo ámbito.
+        const coordinatorReturnButton = document.getElementById('coord-return-to-session');
+        if (coordinatorReturnButton) coordinatorReturnButton.addEventListener('click', returnToCoordinatorSession);
         loadStorage();
         const atrilScrollArea = document.getElementById('atril-scroll-area');
         if (atrilScrollArea) atrilScrollArea.addEventListener('scroll', updateAtrilProgress, { passive: true });
