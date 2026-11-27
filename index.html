@@ -4515,16 +4515,34 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       async function publishCoordinatorSessionList(sessionId, songRows) {
         const selector = document.getElementById('coord-program-list-select');
+        const status = document.getElementById('coord-program-publish-status');
+        const report = (message, isError = true) => {
+          if (status) {
+            status.style.display = 'block';
+            status.style.color = isError ? 'var(--danger, #ef6b78)' : 'var(--success, #70c995)';
+            status.textContent = message;
+          }
+          if (isError) showToast(message);
+        };
         const list = state.lists.find(item => String(item.id) === String(selector?.value));
-        if (!list) { showToast('Selecciona una lista de ensayo.'); return; }
-        const idByAppId = new Map((songRows || []).map(song => [String(song.app_id || song.id), Number(song.id)]));
-        const cantoIds = list.songIds.map(id => idByAppId.get(String(id))).filter(Number.isFinite);
-        if (!cantoIds.length || cantoIds.length !== list.songIds.length) { showToast('No todos los cantos de esta lista están disponibles en el repertorio de Supabase.'); return; }
+        if (!list) { report('Diagnóstico: no se encontró la lista seleccionada en el almacenamiento local.'); return; }
+        const rows = Array.isArray(songRows) ? songRows : [];
+        const idByAppId = new Map(rows.map(song => [String(song.app_id || song.id), Number(song.id)]));
+        const mapped = list.songIds.map(id => ({ localId: String(id), cantoId: idByAppId.get(String(id)) }));
+        const cantoIds = mapped.filter(item => Number.isFinite(item.cantoId)).map(item => item.cantoId);
+        const missing = mapped.filter(item => !Number.isFinite(item.cantoId)).map(item => item.localId);
+        if (!cantoIds.length || missing.length) {
+          report(`No se pudo publicar: ${missing.length} de ${list.songIds.length} cantos no tienen correspondencia en Supabase. Coincidencias: ${cantoIds.length}. IDs locales sin correspondencia: ${missing.slice(0, 12).join(', ') || 'ninguno'}. Filas del repertorio consultadas: ${rows.length}.`);
+          return;
+        }
+        if (status) { status.style.display = 'block'; status.style.color = 'var(--text-muted, #9aa4b2)'; status.textContent = `Publicando «${list.name}»: ${cantoIds.length} cantos…`; }
         try {
-          await supabaseRequest('/rest/v1/rpc/coordinator_publish_session_program', { method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_list_name: list.name, p_list_date: list.date || '', p_canto_ids: cantoIds }) }, true);
-          showToast('Lista de ensayo publicada en la sesión.');
+          const result = await supabaseRequest('/rest/v1/rpc/coordinator_publish_session_program', { method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_list_name: list.name, p_list_date: list.date || '', p_canto_ids: cantoIds }) }, true);
+          report(`Lista «${list.name}» publicada correctamente (${cantoIds.length} cantos).`, false);
           await loadCoordinatorSessionProgram(sessionId, songRows);
-        } catch (error) { showToast('No se pudo publicar la lista: ' + (error.message || 'Error de Supabase.')); }
+        } catch (error) {
+          report(`Error al publicar en Supabase: ${error.message || 'Error desconocido'}. Lista: ${list.name}. Cantos enviados: ${cantoIds.length}.`);
+        }
       }
 
       async function addCoordinatorExtraSong(sessionId, songRows) {
@@ -4585,7 +4603,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             <section class="card" style="margin-top:14px;padding:12px;">
               <strong>📋 Programación del ensayo</strong>
               <p class="section-desc">Comparte una lista que ya preparaste en «Mis listas». Los participantes podrán consultarla y abrir los cantos individualmente.</p>
-              ${session.status === 'active' && canManageProgram ? `<label class="section-desc" for="coord-program-list-select">Lista de ensayo</label><select id="coord-program-list-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona una lista --</option>${(state.lists || []).map(list => `<option value="${esc(String(list.id))}">${esc(list.name)} (${list.songIds.length} cantos)</option>`).join('')}</select><button type="button" class="btn btn-primary btn-sm" id="coord-publish-program" ${(state.lists || []).length ? '' : 'disabled'}>Publicar lista en esta sesión</button><div style="margin-top:12px;"><label class="section-desc" for="coord-extra-song-select">Agregar un canto fuera de la lista</label><select id="coord-extra-song-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona un canto --</option>${(coordinatorSongRows || []).map(song => `<option value="${esc(String(song.id))}">${esc(song.titulo || 'Canto sin título')}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" id="coord-add-extra-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Agregar canto a esta sesión</button></div>` : ''}
+              ${session.status === 'active' && canManageProgram ? `<label class="section-desc" for="coord-program-list-select">Lista de ensayo</label><select id="coord-program-list-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona una lista --</option>${(state.lists || []).map(list => `<option value="${esc(String(list.id))}">${esc(list.name)} (${list.songIds.length} cantos)</option>`).join('')}</select><button type="button" class="btn btn-primary btn-sm" id="coord-publish-program" ${(state.lists || []).length ? '' : 'disabled'}>Publicar lista en esta sesión</button><p id="coord-program-publish-status" class="section-desc" role="status" aria-live="polite" style="display:none;white-space:normal;overflow-wrap:anywhere;margin:8px 0;"></p><div style="margin-top:12px;"><label class="section-desc" for="coord-extra-song-select">Agregar un canto fuera de la lista</label><select id="coord-extra-song-select" class="form-control" style="width:100%;margin:6px 0 8px;"><option value="">-- Selecciona un canto --</option>${(coordinatorSongRows || []).map(song => `<option value="${esc(String(song.id))}">${esc(song.titulo || 'Canto sin título')}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" id="coord-add-extra-song" ${coordinatorSongRows.length ? '' : 'disabled'}>Agregar canto a esta sesión</button></div>` : ''}
               <div id="coord-session-program" style="margin-top:12px;"><p class="section-desc">Cargando programación…</p></div>
             </section>
             <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;">
