@@ -4997,7 +4997,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         if (button) button.setAttribute('aria-label', `${count || 0} invitaciones a sesiones`);
       }
 
-      async function refreshCoordinatorInvitationBadge({ notifyNew = false } = {}) {
+      async function refreshCoordinatorInvitationBadge({ notifyInitial = false, notifyNew = false } = {}) {
         if (!state.supabaseSession?.access_token || coordinatorInvitationRequestBusy) return;
         coordinatorInvitationRequestBusy = true;
         try {
