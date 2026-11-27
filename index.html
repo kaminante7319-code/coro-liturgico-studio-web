@@ -4322,6 +4322,49 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
       }
 
+      async function enterCoordinatorSession(sessionId) {
+        const rows = await supabaseRequest(
+          `/rest/v1/coordinator_sessions?select=id,name,status,active_coordinator_id,created_by,current_canto_id,song_revision&id=eq.${encodeURIComponent(sessionId)}`,
+          {}, true
+        );
+        const session = rows && rows[0];
+        if (!session) { showToast('No se pudo encontrar esta sesión.'); return; }
+        const room = document.getElementById('coord-session-room');
+        if (!room) return;
+        room.style.display = 'flex';
+        room.innerHTML = `
+          <div class="row-between"><strong>🎼 Sala: ${esc(session.name)}</strong><span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'}</span></div>
+          <p class="section-desc">${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control.' : (session.active_coordinator_id ? 'Otro coordinador tiene el control.' : 'La sesión no tiene coordinador activo.')}</p>
+          <p class="section-desc">Canto compartido: ${session.current_canto_id ? 'ID ' + esc(String(session.current_canto_id)) : 'Todavía no se ha seleccionado un canto.'}</p>
+          <p class="section-desc">Revisión de repertorio: ${Number(session.song_revision) || 0}</p>
+          <div class="row" style="flex-wrap:wrap;gap:8px;">
+            ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id ? `<button type="button" class="btn btn-primary btn-sm" id="coord-room-takeover">Tomar el control</button>` : ''}
+            ${session.status === 'active' && (state.isAdmin || session.created_by === state.supabaseSession?.user?.id) ? `<button type="button" class="btn btn-danger btn-sm" id="coord-room-close">Cerrar sesión</button>` : ''}
+          </div>`;
+        const takeover = document.getElementById('coord-room-takeover');
+        if (takeover) takeover.onclick = async () => { await takeCoordinatorControl(sessionId); await enterCoordinatorSession(sessionId); };
+        const close = document.getElementById('coord-room-close');
+        if (close) close.onclick = () => closeCoordinatorSession(sessionId);
+      }
+
+      async function closeCoordinatorSession(sessionId) {
+        if (!confirm('¿Cerrar esta sesión? Se conservará su historial, pero ya no podrá utilizarse.')) return;
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_close_session', {
+            method: 'POST', body: JSON.stringify({ p_session_id: sessionId })
+          }, true);
+          coordinatorSelectedSessionId = null;
+          const room = document.getElementById('coord-session-room');
+          if (room) { room.style.display = 'none'; room.innerHTML = ''; }
+          const participants = document.getElementById('coord-participant-panel');
+          if (participants) participants.style.display = 'none';
+          showToast('Sesión cerrada. El historial se conserva.');
+          await loadCoordinatorSessions();
+        } catch (error) {
+          showToast('No se pudo cerrar la sesión: ' + (error.message || 'Error de Supabase.'));
+        }
+      }
+
       async function selectCoordinatorSession(sessionId) {
         coordinatorSelectedSessionId = sessionId;
         document.querySelectorAll('[data-coord-select]').forEach(el => el.style.outline = el.dataset.coordSelect === sessionId ? '2px solid var(--primary)' : 'none');
@@ -4348,13 +4391,16 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           status.textContent = 'Sesiones disponibles: ' + rows.length;
           list.innerHTML = rows.map(session => `
             <article data-coord-select="${esc(session.id)}" style="padding:10px;border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;gap:7px;">
-              <strong>${esc(session.name)}</strong>
+              <button type="button" class="btn btn-secondary btn-sm" data-coord-enter="${esc(session.id)}" style="text-align:left;justify-content:flex-start;font-weight:800;">${esc(session.name)} · Entrar a la sesión</button>
               <span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'} · ${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control' : (session.active_coordinator_id ? 'Otro coordinador dirige' : 'Sin coordinador activo')}</span>
               <small style="color:var(--text-muted);">Revisión de repertorio: ${Number(session.song_revision) || 0}</small>
               ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id && (state.isAdmin || state.isCoAdmin) ? `<button type="button" class="btn btn-primary btn-sm" data-coord-takeover="${esc(session.id)}">Tomar el control</button>` : ''}
               <button type="button" class="btn btn-secondary btn-sm" data-coord-manage="${esc(session.id)}" ${session.status !== 'active' ? 'disabled' : ''}>Administrar participantes</button>
+              ${session.status === 'active' && (state.isAdmin || session.created_by === state.supabaseSession?.user?.id) ? `<button type="button" class="btn btn-danger btn-sm" data-coord-close="${esc(session.id)}">Cerrar sesión</button>` : ''}
             </article>`).join('');
+          list.querySelectorAll('[data-coord-enter]').forEach(button => button.addEventListener('click', () => enterCoordinatorSession(button.dataset.coordEnter)));
           list.querySelectorAll('[data-coord-manage]').forEach(button => button.addEventListener('click', () => selectCoordinatorSession(button.dataset.coordManage)));
+          list.querySelectorAll('[data-coord-close]').forEach(button => button.addEventListener('click', () => closeCoordinatorSession(button.dataset.coordClose)));
           list.querySelectorAll('[data-coord-takeover]').forEach(button => button.addEventListener('click', () => takeCoordinatorControl(button.dataset.coordTakeover)));
           if (coordinatorSelectedSessionId && rows.some(row => row.id === coordinatorSelectedSessionId && row.status === 'active')) {
             await selectCoordinatorSession(coordinatorSelectedSessionId);
@@ -4406,6 +4452,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           <form id="coord-create-session-form" style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"><strong>Crear una sesión</strong><label class="field-label" for="coord-session-name">Nombre de la sesión</label><input id="coord-session-name" class="input" type="text" maxlength="120" placeholder="Ej. Ensayo del sábado" required /><button id="coord-create-session" type="submit" class="btn btn-primary">Crear sesión</button></form>
           <div class="divider"></div>
           <section style="display:flex;flex-direction:column;gap:8px;"><strong>Mis sesiones</strong><div id="coord-module-status" class="section-desc" role="status">Preparando sesiones…</div><div id="coord-session-list" style="display:flex;flex-direction:column;gap:8px;"></div><button type="button" id="coord-refresh-sessions" class="btn btn-secondary btn-sm">Actualizar sesiones</button></section>
+          <section id="coord-session-room" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"></section>
           <section id="coord-participant-panel" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);">
             <strong>👥 Administrar participantes</strong><p class="section-desc">Para esta primera prueba, invita usando el UUID de una cuenta que ya esté activa en authorized_users.</p>
             <label class="field-label" for="coord-invite-user-id">UUID del usuario</label><input id="coord-invite-user-id" class="input" type="text" autocomplete="off" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
