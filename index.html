@@ -4533,7 +4533,13 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               // backdrop sin destruir su DOM para que el visor sea la única
               // pantalla visible y podamos restaurar la sala al regresar.
               const coordinatorBackdrop = document.getElementById('modal-backdrop');
-              if (coordinatorBackdrop) coordinatorBackdrop.classList.add('hidden');
+              if (coordinatorBackdrop) {
+                // Ocultación forzada: evita que reglas de display del modal
+                // prevalezcan sobre la clase .hidden en ciertos navegadores móviles.
+                coordinatorBackdrop.classList.add('hidden');
+                coordinatorBackdrop.style.setProperty('display', 'none', 'important');
+                coordinatorBackdrop.setAttribute('aria-hidden', 'true');
+              }
               const back = document.getElementById('coord-return-to-session');
               if (back) back.style.display = 'block';
               openVisor(localSong.id);
@@ -4718,7 +4724,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         // Restaurar el mismo modal conservado en memoria; no reconstruir la sala.
         const coordinatorBackdrop = document.getElementById('modal-backdrop');
         if (coordinatorBackdrop && sessionId && coordinatorSelectedSessionId === sessionId) {
+          coordinatorBackdrop.style.removeProperty('display');
           coordinatorBackdrop.classList.remove('hidden');
+          coordinatorBackdrop.setAttribute('aria-hidden', 'false');
         }
         const room = document.getElementById('coord-session-room');
         if (room && sessionId && coordinatorSelectedSessionId === sessionId) room.style.display = 'flex';
