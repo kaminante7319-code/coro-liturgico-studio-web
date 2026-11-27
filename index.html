@@ -4324,11 +4324,28 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             target.innerHTML = '<p class="section-desc">Todavía no hay participantes activos.</p>';
             return;
           }
-          target.innerHTML = activeRows.map(row => `
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:1px solid var(--border);border-radius:10px;">
-              <span style="font-size:12px;overflow-wrap:anywhere;">${esc(row.user_id)}${row.user_id === state.supabaseSession?.user?.id ? ' · Tú' : ''}</span>
-              ${row.user_id === state.supabaseSession?.user?.id ? '<span class="section-desc">Creador/participante</span>' : `<button type="button" class="btn btn-secondary btn-sm" data-coord-remove="${esc(row.user_id)}">Retirar</button>`}
-            </div>`).join('');
+          // Resolver UUID internamente contra authorized_users; nunca mostrarlo en pantalla.
+          const ids = activeRows.map(row => row.user_id).filter(Boolean);
+          const inFilter = ids.map(id => `"${String(id).replace(/"/g, '')}"`).join(',');
+          const accountRows = ids.length ? await supabaseRequest(
+            `/rest/v1/authorized_users?select=user_id,email,active&user_id=in.(${encodeURIComponent(inFilter)})`, {}, true
+          ) : [];
+          const accountsById = new Map((accountRows || []).map(account => [account.user_id, account]));
+          target.innerHTML = activeRows.map(row => {
+            const account = accountsById.get(row.user_id);
+            const email = account?.email || '';
+            const isMe = row.user_id === state.supabaseSession?.user?.id;
+            const label = isMe ? 'Tú' : (email || 'Cuenta autorizada');
+            const role = isMe ? 'Tú · Creador/participante' : 'Participante';
+            return `
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid var(--border);border-radius:10px;">
+                <span style="min-width:0;display:flex;flex-direction:column;gap:3px;overflow-wrap:anywhere;">
+                  <strong style="font-size:13px;">${esc(label)}</strong>
+                  <small class="section-desc">${esc(isMe ? (email || role) : role)}</small>
+                </span>
+                ${isMe ? '<span class="section-desc">Creador</span>' : `<button type="button" class="btn btn-secondary btn-sm" data-coord-remove="${esc(row.user_id)}">Retirar</button>`}
+              </div>`;
+          }).join('');
           target.querySelectorAll('[data-coord-remove]').forEach(button => {
             button.addEventListener('click', () => removeCoordinatorParticipant(sessionId, button.dataset.coordRemove));
           });
