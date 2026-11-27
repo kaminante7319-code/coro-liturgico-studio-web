@@ -4337,27 +4337,51 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         }
       }
 
-      async function inviteCoordinatorParticipant(sessionId) {
-        const input = document.getElementById('coord-invite-user-id');
-        const button = document.getElementById('coord-invite-button');
+      async function searchCoordinatorInvitees(sessionId) {
+        const input = document.getElementById('coord-invite-search');
+        const button = document.getElementById('coord-invite-search-button');
+        const results = document.getElementById('coord-invite-results');
         const status = document.getElementById('coord-participant-status');
-        const userId = (input?.value || '').trim();
-        if (!userId) { showToast('Escribe el UUID del usuario autorizado.'); return; }
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
-          showToast('El identificador debe ser un UUID válido.'); return;
-        }
+        const query = (input?.value || '').trim();
+        if (query.length < 3) { if (status) status.textContent = 'Escribe al menos 3 caracteres del correo electrónico.'; return; }
         button.disabled = true;
-        if (status) status.textContent = 'Enviando invitación…';
+        if (status) status.textContent = 'Buscando cuentas autorizadas…';
+        if (results) results.innerHTML = '';
+        try {
+          const rows = await supabaseRequest('/rest/v1/rpc/coordinator_search_invitable_users', {
+            method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_query: query })
+          }, true);
+          if (!Array.isArray(rows) || !rows.length) {
+            if (status) status.textContent = 'No encontramos cuentas activas disponibles con ese correo.';
+            return;
+          }
+          if (status) status.textContent = `Resultados encontrados: ${rows.length}. Selecciona a quién agregar.`;
+          results.innerHTML = rows.map(row => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid var(--border);border-radius:10px;"><span style="font-size:13px;overflow-wrap:anywhere;">${esc(row.email || 'Cuenta autorizada')}</span><button type="button" class="btn btn-primary btn-sm" data-coord-invite-user="${esc(row.user_id)}">Agregar</button></div>`).join('');
+          results.querySelectorAll('[data-coord-invite-user]').forEach(btn => btn.addEventListener('click', () => inviteCoordinatorParticipant(sessionId, btn.dataset.coordInviteUser, btn)));
+        } catch (error) {
+          if (status) status.textContent = 'No se pudo buscar: ' + (error.message || 'Error de Supabase.');
+        } finally { button.disabled = false; }
+      }
+
+      async function inviteCoordinatorParticipant(sessionId, userId, button) {
+        const status = document.getElementById('coord-participant-status');
+        if (!userId) return;
+        if (button) button.disabled = true;
+        if (status) status.textContent = 'Agregando participante…';
         try {
           await supabaseRequest('/rest/v1/rpc/coordinator_invite_participant', {
             method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_user_id: userId })
           }, true);
-          input.value = '';
+          const input = document.getElementById('coord-invite-search');
+          const results = document.getElementById('coord-invite-results');
+          if (input) input.value = '';
+          if (results) results.innerHTML = '';
           showToast('Participante agregado a la sesión.');
           await loadCoordinatorParticipants(sessionId);
         } catch (error) {
-          if (status) status.textContent = 'No se pudo invitar: ' + (error.message || 'Error de Supabase.');
-        } finally { button.disabled = false; }
+          if (status) status.textContent = 'No se pudo agregar: ' + (error.message || 'Error de Supabase.');
+          if (button) button.disabled = false;
+        }
       }
 
       async function removeCoordinatorParticipant(sessionId, userId) {
@@ -4598,9 +4622,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           <section style="display:flex;flex-direction:column;gap:8px;"><strong>Mis sesiones</strong><div id="coord-module-status" class="section-desc" role="status">Preparando sesiones…</div><div id="coord-session-list" style="display:flex;flex-direction:column;gap:8px;"></div><button type="button" id="coord-refresh-sessions" class="btn btn-secondary btn-sm">Actualizar sesiones</button></section>
           <section id="coord-session-room" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"></section>
           <section id="coord-participant-panel" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);">
-            <strong>👥 Administrar participantes</strong><p class="section-desc">Para esta primera prueba, invita usando el UUID de una cuenta que ya esté activa en authorized_users.</p>
-            <label class="field-label" for="coord-invite-user-id">UUID del usuario</label><input id="coord-invite-user-id" class="input" type="text" autocomplete="off" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-            <button id="coord-invite-button" type="button" class="btn btn-primary">Invitar participante</button>
+            <strong>👥 Administrar participantes</strong><p class="section-desc">Busca por correo electrónico a una persona que ya tenga una cuenta autorizada y activa en la aplicación.</p>
+            <label class="field-label" for="coord-invite-search">Correo electrónico</label><div style="display:flex;gap:8px;align-items:center;"><input id="coord-invite-search" class="input" type="search" autocomplete="off" placeholder="nombre@correo.com" style="flex:1;min-width:0;" /><button id="coord-invite-search-button" type="button" class="btn btn-primary">Buscar</button></div>
+            <div id="coord-invite-results" style="display:flex;flex-direction:column;gap:6px;"></div>
             <div id="coord-participant-status" class="section-desc" role="status">Selecciona una sesión para consultar participantes.</div><div id="coord-participant-list" style="display:flex;flex-direction:column;gap:6px;"></div>
           </section>
           <p class="section-desc">Los participantes pueden consultarse y retirarse desde esta sección. La invitación por correo y la toma de control se incorporarán en la siguiente fase.</p>
@@ -4608,7 +4632,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('coord-close').onclick = closeModal;
         document.getElementById('coord-create-session-form').addEventListener('submit', createCoordinatorSession);
         document.getElementById('coord-refresh-sessions').onclick = loadCoordinatorSessions;
-        document.getElementById('coord-invite-button').onclick = () => coordinatorSelectedSessionId && inviteCoordinatorParticipant(coordinatorSelectedSessionId);
+        document.getElementById('coord-invite-search-button').onclick = () => coordinatorSelectedSessionId && searchCoordinatorInvitees(coordinatorSelectedSessionId);
+        document.getElementById('coord-invite-search').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); if (coordinatorSelectedSessionId) searchCoordinatorInvitees(coordinatorSelectedSessionId); } });
         await loadCoordinatorSessions();
       }
 
