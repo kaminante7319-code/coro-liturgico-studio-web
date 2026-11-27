@@ -4320,6 +4320,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       let coordinatorInvitationPoll = null;
       let coordinatorKnownInvitationIds = null;
       let coordinatorInvitationRequestBusy = false;
+      // Evita repetir la alerta inicial si el monitor se reinicia por una renovación de sesión.
+      let coordinatorInvitationInitialAlertedUserId = null;
 
       function stopCoordinatorRealtime() {
         if (coordinatorRealtimePoll) { clearInterval(coordinatorRealtimePoll); coordinatorRealtimePoll = null; }
@@ -5003,6 +5005,15 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           const ids = new Set(invitations.map(item => String(item.id)));
           updateCoordinatorInvitationCount(ids.size);
           if (coordinatorKnownInvitationIds === null) {
+            // Al entrar a la aplicación, avisar también de las invitaciones que ya existían.
+            const currentUserId = state.supabaseSession?.user?.id;
+            if (notifyInitial && invitations.length && currentUserId &&
+                coordinatorInvitationInitialAlertedUserId !== currentUserId) {
+              showToast(invitations.length === 1
+                ? `Tienes una invitación a la sesión «${invitations[0].name}».`
+                : `Tienes ${invitations.length} invitaciones pendientes a sesiones.`);
+              coordinatorInvitationInitialAlertedUserId = currentUserId;
+            }
             coordinatorKnownInvitationIds = ids;
           } else {
             const added = invitations.filter(item => !coordinatorKnownInvitationIds.has(String(item.id)));
@@ -5025,13 +5036,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           if (bell) bell.classList.add('hidden');
           if (coordinatorInvitationPoll) { clearInterval(coordinatorInvitationPoll); coordinatorInvitationPoll = null; }
           coordinatorKnownInvitationIds = null;
+          coordinatorInvitationInitialAlertedUserId = null;
           updateCoordinatorInvitationCount(0);
           return;
         }
         if (bell) bell.classList.remove('hidden');
         if (coordinatorInvitationPoll) clearInterval(coordinatorInvitationPoll);
         coordinatorKnownInvitationIds = null;
-        refreshCoordinatorInvitationBadge();
+        refreshCoordinatorInvitationBadge({ notifyInitial: true });
         coordinatorInvitationPoll = setInterval(() => {
           if (document.visibilityState === 'visible') refreshCoordinatorInvitationBadge({ notifyNew: true });
         }, 30000);
