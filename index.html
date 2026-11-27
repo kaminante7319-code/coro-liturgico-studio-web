@@ -550,6 +550,11 @@
       box-shadow: var(--shadow);
     }
 
+    .session-invitations-bell{position:fixed;right:14px;top:calc(var(--header-h) + 8px);z-index:75;display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:7px 12px;border:1px solid var(--primary-border);border-radius:999px;background:var(--surface);color:var(--text);font-size:.78rem;font-weight:800;box-shadow:var(--shadow);cursor:pointer}
+    .session-invitations-bell.hidden{display:none!important}
+    .session-invitations-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--primary);color:var(--primary-contrast);font-size:.68rem;font-variant-numeric:tabular-nums}
+    @media(max-width:600px){.session-invitations-bell{right:9px;top:calc(var(--header-h) + 6px);min-height:38px;padding:6px 10px}}
+
     .divider {
       height: 1px;
       background: var(--border);
@@ -2817,6 +2822,10 @@ body.coordinator-session-visor-active #coordinator-session-visor-shell { display
   <!-- ===================================================================== -->
   <!-- MAIN APPLICATION SHELL                                                -->
   <!-- ===================================================================== -->
+  <button type="button" id="session-invitations-bell" class="session-invitations-bell hidden" aria-label="Mis invitaciones a sesiones" title="Mis invitaciones a sesiones">
+    <span aria-hidden="true">🔔</span><span>Invitaciones</span><span id="session-invitations-count" class="session-invitations-count" aria-live="polite">0</span>
+  </button>
+
   <main id="app-shell">
 
     <!-- =================================================================== -->
@@ -4287,6 +4296,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           roleText.textContent = '🔒 Coro'; roleBtn.classList.remove('admin-unlocked');
           roleBtn.title = 'Ingresar con cuenta autorizada'; brandSub.textContent = 'Acceso privado';
         }
+        startCoordinatorInvitationMonitor();
         const editorEntry = document.getElementById('admin-song-editor-entry');
         if (editorEntry) editorEntry.classList.toggle('hidden', !manager);
         document.getElementById('cantoral-admin-banner').classList.toggle('hidden', !manager);
@@ -4307,6 +4317,9 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       let coordinatorRealtimeClient = null;
       let coordinatorRealtimeChannel = null;
       let coordinatorRealtimePoll = null;
+      let coordinatorInvitationPoll = null;
+      let coordinatorKnownInvitationIds = null;
+      let coordinatorInvitationRequestBusy = false;
 
       function stopCoordinatorRealtime() {
         if (coordinatorRealtimePoll) { clearInterval(coordinatorRealtimePoll); coordinatorRealtimePoll = null; }
@@ -4753,7 +4766,13 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           const takeover = document.getElementById('coord-room-takeover');
           if (takeover) takeover.onclick = async () => { await takeCoordinatorControl(sessionId); await enterCoordinatorSession(sessionId); };
           const exit = document.getElementById('coord-room-exit');
-          if (exit) exit.onclick = () => exitCoordinatorSessionRoom();
+          if (exit) exit.onclick = () => {
+            exitCoordinatorSessionRoom();
+            const invitationsList = document.getElementById('coord-invitations-list');
+            const invitationsRefresh = document.getElementById('coord-invitations-refresh');
+            const invitationsStatus = document.getElementById('coord-invitations-status');
+            if (invitationsList) { invitationsList.style.display = 'flex'; if (invitationsRefresh) invitationsRefresh.style.display = ''; if (invitationsStatus) invitationsStatus.textContent = 'Puedes volver a entrar cuando lo necesites.'; }
+          };
           const close = document.getElementById('coord-room-close');
           if (close) close.onclick = () => closeCoordinatorSession(sessionId);
           room.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -4812,6 +4831,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function exitCoordinatorSessionRoom() {
+        stopCoordinatorRealtime();
+        coordinatorSelectedSessionId = null;
         const room = document.getElementById('coord-session-room');
         if (room) room.style.display = 'none';
         const visor = document.getElementById('view-visor');
@@ -4938,6 +4959,125 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         } catch (error) {
           status.textContent = 'No se pudo crear la sesión: ' + (error.message || 'Error de Supabase.');
         } finally { button.disabled = false; }
+      }
+
+      async function getCoordinatorInvitations() {
+        if (!state.supabaseSession?.access_token) return [];
+        const currentUserId = state.supabaseSession.user?.id;
+        if (!currentUserId) return [];
+        const rows = await supabaseRequest(
+          '/rest/v1/coordinator_sessions?select=id,name,status,active_coordinator_id,created_by,created_at&status=eq.active&order=created_at.desc',
+          {}, true
+        );
+        return (rows || []).filter(session => session.created_by && session.created_by !== currentUserId);
+      }
+
+      function updateCoordinatorInvitationCount(count) {
+        const button = document.getElementById('session-invitations-bell');
+        const badge = document.getElementById('session-invitations-count');
+        if (badge) badge.textContent = String(Math.min(Number(count) || 0, 99));
+        if (button) button.setAttribute('aria-label', `${count || 0} invitaciones a sesiones`);
+      }
+
+      async function refreshCoordinatorInvitationBadge({ notifyNew = false } = {}) {
+        if (!state.supabaseSession?.access_token || coordinatorInvitationRequestBusy) return;
+        coordinatorInvitationRequestBusy = true;
+        try {
+          const invitations = await getCoordinatorInvitations();
+          const ids = new Set(invitations.map(item => String(item.id)));
+          updateCoordinatorInvitationCount(ids.size);
+          if (coordinatorKnownInvitationIds === null) {
+            coordinatorKnownInvitationIds = ids;
+          } else {
+            const added = invitations.filter(item => !coordinatorKnownInvitationIds.has(String(item.id)));
+            if (notifyNew && added.length) {
+              const first = added[0];
+              showToast(added.length === 1
+                ? `Nueva invitación a la sesión «${first.name}».`
+                : `Tienes ${added.length} invitaciones nuevas a sesiones.`);
+            }
+            coordinatorKnownInvitationIds = ids;
+          }
+        } catch (error) {
+          console.warn('No se pudieron actualizar las invitaciones a sesiones:', error);
+        } finally { coordinatorInvitationRequestBusy = false; }
+      }
+
+      function startCoordinatorInvitationMonitor() {
+        const bell = document.getElementById('session-invitations-bell');
+        if (!state.supabaseSession?.access_token) {
+          if (bell) bell.classList.add('hidden');
+          if (coordinatorInvitationPoll) { clearInterval(coordinatorInvitationPoll); coordinatorInvitationPoll = null; }
+          coordinatorKnownInvitationIds = null;
+          updateCoordinatorInvitationCount(0);
+          return;
+        }
+        if (bell) bell.classList.remove('hidden');
+        if (coordinatorInvitationPoll) clearInterval(coordinatorInvitationPoll);
+        coordinatorKnownInvitationIds = null;
+        refreshCoordinatorInvitationBadge();
+        coordinatorInvitationPoll = setInterval(() => {
+          if (document.visibilityState === 'visible') refreshCoordinatorInvitationBadge({ notifyNew: true });
+        }, 30000);
+      }
+
+      async function openCoordinatorInvitationsModal() {
+        if (!state.supabaseSession?.access_token) {
+          showToast('Inicia sesión con tu cuenta autorizada para consultar invitaciones.');
+          return;
+        }
+        openModal(`
+          <div class="row-between"><div><h3 class="section-title">🔔 Mis invitaciones</h3><p class="section-desc">Sesiones a las que te han agregado. Tú decides cuándo entrar.</p></div><button type="button" id="coord-invitations-close" class="mini-icon-btn">&times;</button></div>
+          <div class="divider"></div>
+          <div id="coord-invitations-status" class="section-desc" role="status" aria-live="polite">Consultando invitaciones…</div>
+          <div id="coord-invitations-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+          <button type="button" id="coord-invitations-refresh" class="btn btn-secondary btn-sm">Actualizar invitaciones</button>
+          <section id="coord-session-room" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"></section>
+        `);
+        document.getElementById('coord-invitations-close').onclick = closeModal;
+        document.getElementById('coord-invitations-refresh').onclick = loadCoordinatorInvitations;
+        await loadCoordinatorInvitations();
+      }
+
+      async function loadCoordinatorInvitations() {
+        const status = document.getElementById('coord-invitations-status');
+        const list = document.getElementById('coord-invitations-list');
+        if (!status || !list) return;
+        status.textContent = 'Consultando invitaciones…';
+        list.innerHTML = '';
+        try {
+          const invitations = await getCoordinatorInvitations();
+          updateCoordinatorInvitationCount(invitations.length);
+          if (!invitations.length) {
+            status.textContent = 'No tienes invitaciones activas por el momento.';
+            list.innerHTML = '<div class="empty-state">Cuando alguien te agregue a una sesión, aparecerá aquí.</div>';
+            return;
+          }
+          status.textContent = `Tienes ${invitations.length} invitación(es) activa(s).`;
+          list.innerHTML = invitations.map(session => `
+            <article style="padding:12px;border:1px solid var(--primary-border);border-radius:12px;background:var(--surface-2);display:flex;flex-direction:column;gap:7px;">
+              <strong>🎼 ${esc(session.name || 'Sesión de ensayo')}</strong>
+              <span class="section-desc">Invitación recibida · Sesión activa</span>
+              <button type="button" class="btn btn-primary btn-sm" data-coord-invitation-enter="${esc(session.id)}">Entrar a la sesión</button>
+            </article>`).join('');
+          list.querySelectorAll('[data-coord-invitation-enter]').forEach(button => {
+            button.addEventListener('click', async () => {
+              const room = document.getElementById('coord-session-room');
+              const listPanel = document.getElementById('coord-invitations-list');
+              const refreshButton = document.getElementById('coord-invitations-refresh');
+              if (listPanel) listPanel.style.display = 'none';
+              if (refreshButton) refreshButton.style.display = 'none';
+              status.textContent = 'Abriendo la sesión…';
+              await enterCoordinatorSession(button.dataset.coordInvitationEnter);
+              if (room && room.style.display === 'none') {
+                if (listPanel) listPanel.style.display = 'flex';
+                if (refreshButton) refreshButton.style.display = '';
+              }
+            });
+          });
+        } catch (error) {
+          status.textContent = 'No se pudieron consultar tus invitaciones: ' + (error.message || 'Error de conexión.');
+        }
       }
 
       async function openCoordinatorPanelModal() {
@@ -9216,6 +9356,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function init() {
+        const invitationsBell = document.getElementById('session-invitations-bell');
+        if (invitationsBell) invitationsBell.addEventListener('click', openCoordinatorInvitationsModal);
         const recoveryPending = detectPasswordRecovery();
         setupSplashScreen();
         const brandLogoBtn = document.getElementById('btn-brand-logo');
