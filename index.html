@@ -4290,6 +4290,8 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       let coordinatorSelectedSessionId = null;
       let coordinatorReturnSessionId = null;
       let coordinatorReturnScrollY = 0;
+      // Conserva el lugar original del visor para aislarlo del modal durante la consulta.
+      let coordinatorVisorHome = null;
       let coordinatorRealtimeClient = null;
       let coordinatorRealtimeChannel = null;
       let coordinatorRealtimePoll = null;
@@ -4549,11 +4551,32 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
               return;
             }
-            // Establecer el contexto de regreso solo después de confirmar que el visor puede abrirse.
-            const opened = openVisor(localSong.id);
-            if (!opened) return;
-            coordinatorReturnSessionId = sessionId;
+            // Abrir el visor fuera del modal: se mueve temporalmente al body para
+            // evitar que el contexto/transformación del contenedor de la app lo recorte.
+            const visor = document.getElementById('view-visor');
+            if (!visor) { showToast('No se encontró la pantalla del visor.'); return; }
             coordinatorReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+            if (!coordinatorVisorHome) {
+              const placeholder = document.createComment('coordinator-visor-home');
+              const parent = visor.parentNode;
+              parent.insertBefore(placeholder, visor);
+              coordinatorVisorHome = { parent, placeholder };
+              document.body.appendChild(visor);
+            }
+            coordinatorReturnSessionId = sessionId;
+            const opened = openVisor(localSong.id);
+            if (!opened) {
+              coordinatorReturnSessionId = null;
+              document.body.classList.remove('coordinator-session-visor-active');
+              const back = document.getElementById('coord-return-to-session');
+              if (back) { back.hidden = true; back.style.display = 'none'; }
+              if (coordinatorVisorHome?.placeholder?.parentNode) {
+                coordinatorVisorHome.placeholder.parentNode.insertBefore(visor, coordinatorVisorHome.placeholder);
+                coordinatorVisorHome.placeholder.remove();
+                coordinatorVisorHome = null;
+              }
+              return;
+            }
             document.body.classList.add('coordinator-session-visor-active');
             const back = document.getElementById('coord-return-to-session');
             if (back) { back.hidden = false; back.style.display = 'flex'; }
@@ -4735,19 +4758,18 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function returnToCoordinatorSession() {
         const sessionId = coordinatorReturnSessionId;
-        if (!sessionId || sessionId !== coordinatorSelectedSessionId) {
-          coordinatorReturnSessionId = null;
-          document.body.classList.remove('coordinator-session-visor-active');
-          const back = document.getElementById('coord-return-to-session');
-          if (back) { back.hidden = true; back.style.display = 'none'; }
-          showTab('ensayo');
-          return;
-        }
+        const visor = document.getElementById('view-visor');
         coordinatorReturnSessionId = null;
         document.body.classList.remove('coordinator-session-visor-active');
         const back = document.getElementById('coord-return-to-session');
         if (back) { back.hidden = true; back.style.display = 'none'; }
+        // Cambiar de vista antes de devolver el visor a su contenedor original.
         showTab('ensayo');
+        if (visor && coordinatorVisorHome?.placeholder?.parentNode) {
+          coordinatorVisorHome.placeholder.parentNode.insertBefore(visor, coordinatorVisorHome.placeholder);
+          coordinatorVisorHome.placeholder.remove();
+          coordinatorVisorHome = null;
+        }
         const coordinatorBackdrop = document.getElementById('modal-backdrop');
         if (coordinatorBackdrop) {
           coordinatorBackdrop.style.removeProperty('display');
@@ -4755,13 +4777,19 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           coordinatorBackdrop.setAttribute('aria-hidden', 'false');
         }
         const room = document.getElementById('coord-session-room');
-        if (room) room.style.display = 'flex';
+        if (room && sessionId === coordinatorSelectedSessionId) room.style.display = 'flex';
         requestAnimationFrame(() => window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'instant' }));
       }
 
       function exitCoordinatorSessionRoom() {
         const room = document.getElementById('coord-session-room');
         if (room) room.style.display = 'none';
+        const visor = document.getElementById('view-visor');
+        if (visor && coordinatorVisorHome?.placeholder?.parentNode) {
+          coordinatorVisorHome.placeholder.parentNode.insertBefore(visor, coordinatorVisorHome.placeholder);
+          coordinatorVisorHome.placeholder.remove();
+          coordinatorVisorHome = null;
+        }
         coordinatorReturnSessionId = null;
         document.body.classList.remove('coordinator-session-visor-active');
         const back = document.getElementById('coord-return-to-session');
