@@ -4670,6 +4670,81 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         };
       }
 
+      // REALTIME DEL CANTORAL: actualiza cambios remotos sin recargar la página.
+      let cantoralRealtimeClient = null;
+      let cantoralRealtimeChannel = null;
+      let cantoralRealtimeRefreshTimer = null;
+      let cantoralRealtimeRefreshBusy = false;
+      let cantoralRealtimeRefreshPending = false;
+
+      function stopCantoralRealtime() {
+        if (cantoralRealtimeRefreshTimer) {
+          clearTimeout(cantoralRealtimeRefreshTimer);
+          cantoralRealtimeRefreshTimer = null;
+        }
+        if (cantoralRealtimeClient && cantoralRealtimeChannel) {
+          cantoralRealtimeClient.removeChannel(cantoralRealtimeChannel).catch(() => {});
+        }
+        cantoralRealtimeChannel = null;
+      }
+
+      function scheduleCantoralRealtimeRefresh() {
+        if (cantoralRealtimeRefreshTimer) clearTimeout(cantoralRealtimeRefreshTimer);
+        cantoralRealtimeRefreshTimer = setTimeout(async () => {
+          cantoralRealtimeRefreshTimer = null;
+          if (!state.supabaseSession?.access_token) return;
+          if (cantoralRealtimeRefreshBusy) {
+            cantoralRealtimeRefreshPending = true;
+            return;
+          }
+          // No reemplazar datos mientras el formulario de edición está abierto.
+          const editor = document.getElementById('song-form');
+          const backdrop = document.getElementById('modal-backdrop');
+          if (editor && backdrop && !backdrop.classList.contains('hidden')) {
+            cantoralRealtimeRefreshPending = true;
+            cantoralRealtimeRefreshTimer = setTimeout(scheduleCantoralRealtimeRefresh, 1500);
+            return;
+          }
+          cantoralRealtimeRefreshBusy = true;
+          try {
+            await loadSupabaseSongs(['admin', 'coadmin'].includes(state.userRole));
+          } finally {
+            cantoralRealtimeRefreshBusy = false;
+            if (cantoralRealtimeRefreshPending) {
+              cantoralRealtimeRefreshPending = false;
+              // Reintento breve para aplicar los cambios pendientes una vez libre el editor.
+              cantoralRealtimeRefreshTimer = setTimeout(scheduleCantoralRealtimeRefresh, 1200);
+            }
+          }
+        }, 350);
+      }
+
+      function startCantoralRealtime() {
+        stopCantoralRealtime();
+        if (!state.supabaseSession?.access_token || !window.supabase?.createClient) return;
+        try {
+          if (!cantoralRealtimeClient) {
+            cantoralRealtimeClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+              global: { headers: { Authorization: `Bearer ${state.supabaseSession.access_token}` } },
+              auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+            });
+          } else {
+            cantoralRealtimeClient.realtime.setAuth(state.supabaseSession.access_token);
+          }
+          cantoralRealtimeChannel = cantoralRealtimeClient
+            .channel('cantoral-realtime-public')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'cantos' }, scheduleCantoralRealtimeRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, scheduleCantoralRealtimeRefresh)
+            .subscribe((status, error) => {
+              if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                console.warn('Realtime del cantoral no disponible; los cambios se actualizarán al volver a consultar.', error || status);
+              }
+            });
+        } catch (error) {
+          console.warn('No fue posible iniciar Realtime del cantoral:', error);
+        }
+      }
+
       async function loadSupabaseSongs(admin = false) {
         try {
           state.supabaseCategories = await supabaseRequest('/rest/v1/categorias?select=id,nombre&order=nombre.asc', {}, true);
@@ -5737,6 +5812,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       function logoutChoirSession() {
+        stopCantoralRealtime();
         state.supabaseSession=null; state.isAdmin=false; state.isCoAdmin=false; state.isMember=false; state.userRole=''; state.userEmail='';
         state.songs=[]; setAdminMode(false); renderSongsList(); renderVisor(); showToast('Sesión cerrada');
       }
@@ -5784,6 +5860,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             closeModal();
             setAdminMode(state.userRole === 'admin');
             await loadSupabaseSongs(state.userRole === 'admin' || state.userRole === 'coadmin');
+            startCantoralRealtime();
             showToast(state.userRole === 'admin' ? 'Sesión de administrador iniciada' : state.userRole === 'coadmin' ? 'Sesión de coadministrador iniciada' : 'Bienvenido al coro');
           } catch (error) {
             errEl.textContent = error.message || 'No fue posible iniciar sesión.';
