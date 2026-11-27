@@ -4235,7 +4235,82 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('btn-visor-del').classList.toggle('hidden', !manager);
       }
 
-      // MODO COORDINADOR COMPARTIDO: creación y consulta inicial de sesiones.
+      // MODO COORDINADOR COMPARTIDO: sesiones y administración de participantes.
+      let coordinatorSelectedSessionId = null;
+
+      async function loadCoordinatorParticipants(sessionId) {
+        const target = document.getElementById('coord-participant-list');
+        const status = document.getElementById('coord-participant-status');
+        if (!target || !status || !sessionId) return;
+        status.textContent = 'Consultando participantes…';
+        target.innerHTML = '';
+        try {
+          const rows = await supabaseRequest(
+            `/rest/v1/coordinator_participants?select=session_id,user_id,active,joined_at&session_id=eq.${encodeURIComponent(sessionId)}&order=joined_at.asc`,
+            {}, true
+          );
+          const activeRows = (rows || []).filter(row => row.active);
+          status.textContent = `Participantes activos: ${activeRows.length}`;
+          if (!activeRows.length) {
+            target.innerHTML = '<p class="section-desc">Todavía no hay participantes activos.</p>';
+            return;
+          }
+          target.innerHTML = activeRows.map(row => `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border:1px solid var(--border);border-radius:10px;">
+              <span style="font-size:12px;overflow-wrap:anywhere;">${esc(row.user_id)}${row.user_id === state.supabaseSession?.user?.id ? ' · Tú' : ''}</span>
+              ${row.user_id === state.supabaseSession?.user?.id ? '<span class="section-desc">Creador/participante</span>' : `<button type="button" class="btn btn-secondary btn-sm" data-coord-remove="${esc(row.user_id)}">Retirar</button>`}
+            </div>`).join('');
+          target.querySelectorAll('[data-coord-remove]').forEach(button => {
+            button.addEventListener('click', () => removeCoordinatorParticipant(sessionId, button.dataset.coordRemove));
+          });
+        } catch (error) {
+          status.textContent = 'No se pudieron consultar participantes: ' + (error.message || 'Error de conexión.');
+        }
+      }
+
+      async function inviteCoordinatorParticipant(sessionId) {
+        const input = document.getElementById('coord-invite-user-id');
+        const button = document.getElementById('coord-invite-button');
+        const status = document.getElementById('coord-participant-status');
+        const userId = (input?.value || '').trim();
+        if (!userId) { showToast('Escribe el UUID del usuario autorizado.'); return; }
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+          showToast('El identificador debe ser un UUID válido.'); return;
+        }
+        button.disabled = true;
+        if (status) status.textContent = 'Enviando invitación…';
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_invite_participant', {
+            method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_user_id: userId })
+          }, true);
+          input.value = '';
+          showToast('Participante agregado a la sesión.');
+          await loadCoordinatorParticipants(sessionId);
+        } catch (error) {
+          if (status) status.textContent = 'No se pudo invitar: ' + (error.message || 'Error de Supabase.');
+        } finally { button.disabled = false; }
+      }
+
+      async function removeCoordinatorParticipant(sessionId, userId) {
+        if (!confirm('¿Retirar a este participante de la sesión?')) return;
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_remove_participant', {
+            method: 'POST', body: JSON.stringify({ p_session_id: sessionId, p_user_id: userId })
+          }, true);
+          showToast('Participante retirado.');
+          await loadCoordinatorParticipants(sessionId);
+          await loadCoordinatorSessions();
+        } catch (error) { showToast('No se pudo retirar: ' + (error.message || 'Error de Supabase.')); }
+      }
+
+      async function selectCoordinatorSession(sessionId) {
+        coordinatorSelectedSessionId = sessionId;
+        document.querySelectorAll('[data-coord-select]').forEach(el => el.style.outline = el.dataset.coordSelect === sessionId ? '2px solid var(--primary)' : 'none');
+        const panel = document.getElementById('coord-participant-panel');
+        if (panel) panel.style.display = 'flex';
+        await loadCoordinatorParticipants(sessionId);
+      }
+
       async function loadCoordinatorSessions() {
         const status = document.getElementById('coord-module-status');
         const list = document.getElementById('coord-session-list');
@@ -4253,12 +4328,20 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           }
           status.textContent = 'Sesiones disponibles: ' + rows.length;
           list.innerHTML = rows.map(session => `
-            <article style="padding:10px;border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;gap:4px;">
+            <article data-coord-select="${esc(session.id)}" style="padding:10px;border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;gap:7px;">
               <strong>${esc(session.name)}</strong>
               <span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'} · ${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control' : (session.active_coordinator_id ? 'Otro coordinador dirige' : 'Sin coordinador activo')}</span>
               <small style="color:var(--text-muted);">Revisión de repertorio: ${Number(session.song_revision) || 0}</small>
-            </article>
-          `).join('');
+              <button type="button" class="btn btn-secondary btn-sm" data-coord-manage="${esc(session.id)}" ${session.status !== 'active' ? 'disabled' : ''}>Administrar participantes</button>
+            </article>`).join('');
+          list.querySelectorAll('[data-coord-manage]').forEach(button => button.addEventListener('click', () => selectCoordinatorSession(button.dataset.coordManage)));
+          if (coordinatorSelectedSessionId && rows.some(row => row.id === coordinatorSelectedSessionId && row.status === 'active')) {
+            await selectCoordinatorSession(coordinatorSelectedSessionId);
+          } else {
+            coordinatorSelectedSessionId = null;
+            const panel = document.getElementById('coord-participant-panel');
+            if (panel) panel.style.display = 'none';
+          }
         } catch (error) {
           status.textContent = 'No se pudieron consultar las sesiones: ' + (error.message || 'Error de conexión.');
         }
@@ -4276,18 +4359,15 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         status.textContent = 'Creando sesión…';
         try {
           await supabaseRequest('/rest/v1/rpc/coordinator_create_session', {
-            method: 'POST',
-            body: JSON.stringify({ p_name: name })
+            method: 'POST', body: JSON.stringify({ p_name: name })
           }, true);
           input.value = '';
           status.textContent = 'Sesión creada correctamente.';
           await loadCoordinatorSessions();
-          showToast('Sesión creada. Ya puedes invitar participantes en la siguiente etapa.');
+          showToast('Sesión creada correctamente.');
         } catch (error) {
           status.textContent = 'No se pudo crear la sesión: ' + (error.message || 'Error de Supabase.');
-        } finally {
-          button.disabled = false;
-        }
+        } finally { button.disabled = false; }
       }
 
       async function openCoordinatorPanelModal() {
@@ -4300,32 +4380,23 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           return;
         }
         openModal(`
-          <div class="row-between">
-            <div>
-              <h3 class="section-title">🎛️ Modo Coordinador Compartido</h3>
-              <p class="section-desc">Dirección compartida del repertorio en sesiones independientes.</p>
-            </div>
-            <button type="button" id="coord-close" class="mini-icon-btn">&times;</button>
-          </div>
+          <div class="row-between"><div><h3 class="section-title">🎛️ Modo Coordinador Compartido</h3><p class="section-desc">Dirección compartida del repertorio en sesiones independientes.</p></div><button type="button" id="coord-close" class="mini-icon-btn">&times;</button></div>
           <div class="divider"></div>
-          <form id="coord-create-session-form" style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);">
-            <strong>Crear una sesión</strong>
-            <label class="field-label" for="coord-session-name">Nombre de la sesión</label>
-            <input id="coord-session-name" class="input" type="text" maxlength="120" placeholder="Ej. Ensayo del sábado" required />
-            <button id="coord-create-session" type="submit" class="btn btn-primary">Crear sesión</button>
-          </form>
+          <form id="coord-create-session-form" style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"><strong>Crear una sesión</strong><label class="field-label" for="coord-session-name">Nombre de la sesión</label><input id="coord-session-name" class="input" type="text" maxlength="120" placeholder="Ej. Ensayo del sábado" required /><button id="coord-create-session" type="submit" class="btn btn-primary">Crear sesión</button></form>
           <div class="divider"></div>
-          <section style="display:flex;flex-direction:column;gap:8px;">
-            <strong>Mis sesiones</strong>
-            <div id="coord-module-status" class="section-desc" role="status">Preparando sesiones…</div>
-            <div id="coord-session-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-            <button type="button" id="coord-refresh-sessions" class="btn btn-secondary btn-sm">Actualizar sesiones</button>
+          <section style="display:flex;flex-direction:column;gap:8px;"><strong>Mis sesiones</strong><div id="coord-module-status" class="section-desc" role="status">Preparando sesiones…</div><div id="coord-session-list" style="display:flex;flex-direction:column;gap:8px;"></div><button type="button" id="coord-refresh-sessions" class="btn btn-secondary btn-sm">Actualizar sesiones</button></section>
+          <section id="coord-participant-panel" style="display:none;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);">
+            <strong>👥 Administrar participantes</strong><p class="section-desc">Para esta primera prueba, invita usando el UUID de una cuenta que ya esté activa en authorized_users.</p>
+            <label class="field-label" for="coord-invite-user-id">UUID del usuario</label><input id="coord-invite-user-id" class="input" type="text" autocomplete="off" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            <button id="coord-invite-button" type="button" class="btn btn-primary">Invitar participante</button>
+            <div id="coord-participant-status" class="section-desc" role="status">Selecciona una sesión para consultar participantes.</div><div id="coord-participant-list" style="display:flex;flex-direction:column;gap:6px;"></div>
           </section>
-          <p class="section-desc">En esta etapa ya puedes crear sesiones y consultar las que tienes autorizadas. La invitación de participantes y el control del repertorio se habilitarán después de verificar esta fase.</p>
+          <p class="section-desc">Los participantes pueden consultarse y retirarse desde esta sección. La invitación por correo y la toma de control se incorporarán en la siguiente fase.</p>
         `);
         document.getElementById('coord-close').onclick = closeModal;
         document.getElementById('coord-create-session-form').addEventListener('submit', createCoordinatorSession);
         document.getElementById('coord-refresh-sessions').onclick = loadCoordinatorSessions;
+        document.getElementById('coord-invite-button').onclick = () => coordinatorSelectedSessionId && inviteCoordinatorParticipant(coordinatorSelectedSessionId);
         await loadCoordinatorSessions();
       }
 
