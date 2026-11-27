@@ -4235,11 +4235,107 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         document.getElementById('btn-visor-del').classList.toggle('hidden', !manager);
       }
 
+      // MODO COORDINADOR COMPARTIDO: creación y consulta inicial de sesiones.
+      async function loadCoordinatorSessions() {
+        const status = document.getElementById('coord-module-status');
+        const list = document.getElementById('coord-session-list');
+        if (!status || !list) return;
+        status.textContent = 'Consultando tus sesiones…';
+        list.innerHTML = '';
+        try {
+          const rows = await supabaseRequest(
+            '/rest/v1/coordinator_sessions?select=id,name,status,active_coordinator_id,created_by,created_at,current_canto_id,song_revision&order=created_at.desc',
+            {}, true
+          );
+          if (!rows || !rows.length) {
+            status.textContent = 'Todavía no tienes sesiones. Puedes crear la primera.';
+            return;
+          }
+          status.textContent = 'Sesiones disponibles: ' + rows.length;
+          list.innerHTML = rows.map(session => `
+            <article style="padding:10px;border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;gap:4px;">
+              <strong>${esc(session.name)}</strong>
+              <span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'} · ${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control' : (session.active_coordinator_id ? 'Otro coordinador dirige' : 'Sin coordinador activo')}</span>
+              <small style="color:var(--text-muted);">Revisión de repertorio: ${Number(session.song_revision) || 0}</small>
+            </article>
+          `).join('');
+        } catch (error) {
+          status.textContent = 'No se pudieron consultar las sesiones: ' + (error.message || 'Error de conexión.');
+        }
+      }
+
+      async function createCoordinatorSession(event) {
+        event.preventDefault();
+        const input = document.getElementById('coord-session-name');
+        const button = document.getElementById('coord-create-session');
+        const status = document.getElementById('coord-module-status');
+        const name = (input?.value || '').trim();
+        if (!name) { showToast('Escribe el nombre de la sesión.'); return; }
+        if (!state.supabaseSession?.access_token) { showToast('Tu sesión de acceso no está disponible.'); return; }
+        button.disabled = true;
+        status.textContent = 'Creando sesión…';
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_create_session', {
+            method: 'POST',
+            body: JSON.stringify({ p_name: name })
+          }, true);
+          input.value = '';
+          status.textContent = 'Sesión creada correctamente.';
+          await loadCoordinatorSessions();
+          showToast('Sesión creada. Ya puedes invitar participantes en la siguiente etapa.');
+        } catch (error) {
+          status.textContent = 'No se pudo crear la sesión: ' + (error.message || 'Error de Supabase.');
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function openCoordinatorPanelModal() {
+        if (!state.isAdmin && !state.isCoAdmin) {
+          showToast('El Modo Coordinador está reservado al administrador y coadministradores activos.');
+          return;
+        }
+        if (!state.supabaseSession?.access_token) {
+          showToast('Inicia sesión para utilizar el Modo Coordinador.');
+          return;
+        }
+        openModal(`
+          <div class="row-between">
+            <div>
+              <h3 class="section-title">🎛️ Modo Coordinador Compartido</h3>
+              <p class="section-desc">Dirección compartida del repertorio en sesiones independientes.</p>
+            </div>
+            <button type="button" id="coord-close" class="mini-icon-btn">&times;</button>
+          </div>
+          <div class="divider"></div>
+          <form id="coord-create-session-form" style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);">
+            <strong>Crear una sesión</strong>
+            <label class="field-label" for="coord-session-name">Nombre de la sesión</label>
+            <input id="coord-session-name" class="input" type="text" maxlength="120" placeholder="Ej. Ensayo del sábado" required />
+            <button id="coord-create-session" type="submit" class="btn btn-primary">Crear sesión</button>
+          </form>
+          <div class="divider"></div>
+          <section style="display:flex;flex-direction:column;gap:8px;">
+            <strong>Mis sesiones</strong>
+            <div id="coord-module-status" class="section-desc" role="status">Preparando sesiones…</div>
+            <div id="coord-session-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+            <button type="button" id="coord-refresh-sessions" class="btn btn-secondary btn-sm">Actualizar sesiones</button>
+          </section>
+          <p class="section-desc">En esta etapa ya puedes crear sesiones y consultar las que tienes autorizadas. La invitación de participantes y el control del repertorio se habilitarán después de verificar esta fase.</p>
+        `);
+        document.getElementById('coord-close').onclick = closeModal;
+        document.getElementById('coord-create-session-form').addEventListener('submit', createCoordinatorSession);
+        document.getElementById('coord-refresh-sessions').onclick = loadCoordinatorSessions;
+        await loadCoordinatorSessions();
+      }
+
       function openCoAdminPanelModal() {
         if (!state.isCoAdmin) { showToast('Permiso de coadministrador no válido.'); return; }
         openModal(`
           <div class="row-between"><div><h3 class="section-title">Panel de Coadministrador</h3><p class="section-desc">Herramientas limitadas a la gestión del repertorio</p></div><button id="coadm-close" class="mini-icon-btn" type="button">&times;</button></div>
           <div class="grid-2"><div class="admin-stat-box"><div class="admin-stat-num">${state.songs.length}</div><div class="admin-stat-lbl">Cantos en repertorio</div></div><div class="admin-stat-box"><div class="admin-stat-num">${state.songs.filter(x=>!x.published).length}</div><div class="admin-stat-lbl">Pendientes de publicar</div></div></div>
+          <div class="divider"></div>
+          <section style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"><strong>🎛️ Modo Coordinador Compartido</strong><p class="section-desc">Crea sesiones y coordina el canto compartido con otros integrantes autorizados.</p><button id="coadm-open-coordinator" type="button" class="btn btn-primary">Abrir Modo Coordinador</button></section>
           <div class="divider"></div>
           <section style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--primary);border-radius:14px;background:var(--surface-2);"><strong>🎼 Editor de cantos</strong><p class="section-desc">Crear, importar, editar y publicar cantos.</p><button id="coadm-open-editor" type="button" class="btn btn-primary">Abrir editor de cantos</button></section>
           <div class="divider"></div>
@@ -4247,6 +4343,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           <div class="divider"></div><button id="coadm-lock" type="button" class="btn btn-primary" style="width:100%;">Cerrar sesión</button>
         `);
         document.getElementById('coadm-close').onclick=closeModal;
+        document.getElementById('coadm-open-coordinator').onclick=openCoordinatorPanelModal;
         document.getElementById('coadm-open-editor').onclick=()=>{closeModal();openSongFormModal(null);};
         document.getElementById('coadm-bulk-file').addEventListener('change',async ev=>{const file=ev.target.files?.[0];ev.target.value='';if(!file||!requireSongManager())return;try{const items=await parseBulkSongFile(file);if(!items.length)throw new Error('No se detectaron cantos.');openBulkImportPreview(items,file.name);}catch(err){showToast(err.message||'No se pudo leer el archivo');}});
         document.getElementById('coadm-lock').onclick=()=>{closeModal();logoutChoirSession();};
@@ -4498,6 +4595,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
             <small style="color:var(--text-muted);">Los cantos nuevos se guardan inicialmente sin publicar. Los duplicados se pueden reemplazar, conservar o importar como una nueva versión.</small>
           </section>
           <div class="divider"></div>
+          <section style="display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--primary); border-radius:14px; background:var(--surface-2);">
+            <div><strong>🎛️ Modo Coordinador Compartido</strong><p class="section-desc" style="margin:4px 0 0;">Crea sesiones, invita participantes y toma el control de la coordinación.</p></div>
+            <button type="button" id="adm-open-coordinator" class="btn btn-primary" style="width:100%;">Abrir Modo Coordinador</button>
+          </section>
+          <div class="divider"></div>
           <section style="display:flex; flex-direction:column; gap:9px;">
             <div class="row-between" style="gap:8px;">
               <div>
@@ -4579,6 +4681,7 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         `);
 
         document.getElementById('adm-panel-close').onclick = closeModal;
+        document.getElementById('adm-open-coordinator').onclick = openCoordinatorPanelModal;
         document.getElementById('adm-open-song-editor').onclick = () => { closeModal(); openSongFormModal(null); };
         const bulkInput = document.getElementById('adm-bulk-import-file');
         if (bulkInput) bulkInput.addEventListener('change', async ev => {
