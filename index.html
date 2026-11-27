@@ -2736,6 +2736,21 @@ body.home-active #view-inicio .home-brand-band span {
   #coord-session-room #coord-session-program .song-card-actions { grid-template-columns:1fr 1fr; }
   #coord-session-room .row { min-width:0; }
 }
+/* Navegación de sesión: visor como pantalla completa, independiente del modal */
+body.coordinator-session-visor-active { overflow:hidden !important; }
+body.coordinator-session-visor-active .top-bar,
+body.coordinator-session-visor-active .bottom-nav,
+body.coordinator-session-visor-active #global-home-return { display:none !important; }
+body.coordinator-session-visor-active #view-visor {
+  display:block !important; visibility:visible !important; position:fixed !important;
+  inset:0 !important; z-index:10050 !important; width:100vw !important; height:100dvh !important;
+  max-height:100dvh !important; overflow-y:auto !important; overflow-x:hidden !important;
+  margin:0 !important; padding: max(12px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom)) !important;
+  background:var(--bg, #101522) !important; box-sizing:border-box !important;
+}
+body.coordinator-session-visor-active #modal-backdrop { display:none !important; visibility:hidden !important; pointer-events:none !important; }
+body.coordinator-session-visor-active #coord-return-to-session { display:flex !important; position:sticky; top:0; z-index:2; }
+#coord-return-to-session[hidden] { display:none !important; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2900,7 +2915,7 @@ body.home-active #view-inicio .home-brand-band span {
     <!-- TAB 2: VISOR                                                        -->
     <!-- =================================================================== -->
     <section id="view-visor" class="view-section hidden">
-      <button type="button" id="coord-return-to-session" class="btn btn-secondary btn-sm" style="display:none;width:100%;margin:8px 0 12px;" onclick="returnToCoordinatorSession()">← Volver a la sesión</button>
+      <button type="button" id="coord-return-to-session" class="btn btn-secondary btn-sm" hidden style="display:none;width:100%;margin:8px 0 12px;" onclick="returnToCoordinatorSession()">← Volver a la sesión</button>
       <button type="button" id="visor-options-toggle" class="btn btn-primary btn-sm visor-options-toggle" aria-expanded="false" aria-controls="visor-options-drawer">⚙️ Opciones del Visor</button>
       <aside id="visor-options-drawer" class="visor-options-drawer" aria-hidden="true">
         <div class="row-between"><div class="drawer-title">Herramientas del canto</div><button type="button" id="visor-options-close" class="mini-icon-btn" aria-label="Cerrar opciones">✕</button></div>
@@ -4532,16 +4547,13 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               // La sala vive dentro del modal del coordinador. Ocultamos el
               // backdrop sin destruir su DOM para que el visor sea la única
               // pantalla visible y podamos restaurar la sala al regresar.
+              // Cambiar a una vista de sesión aislada: el modal se conserva en DOM,
+              // pero el visor pasa a ocupar toda la pantalla del dispositivo.
               const coordinatorBackdrop = document.getElementById('modal-backdrop');
-              if (coordinatorBackdrop) {
-                // Ocultación forzada: evita que reglas de display del modal
-                // prevalezcan sobre la clase .hidden en ciertos navegadores móviles.
-                coordinatorBackdrop.classList.add('hidden');
-                coordinatorBackdrop.style.setProperty('display', 'none', 'important');
-                coordinatorBackdrop.setAttribute('aria-hidden', 'true');
-              }
+              if (coordinatorBackdrop) coordinatorBackdrop.setAttribute('aria-hidden', 'true');
+              document.body.classList.add('coordinator-session-visor-active');
               const back = document.getElementById('coord-return-to-session');
-              if (back) back.style.display = 'block';
+              if (back) { back.hidden = false; back.style.display = 'flex'; }
               openVisor(localSong.id);
             } else showToast('El canto está en Supabase, pero no se encontró su ficha local para abrir el visor.');
           });
@@ -4717,31 +4729,37 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
 
       function returnToCoordinatorSession() {
         const sessionId = coordinatorReturnSessionId;
+        if (!sessionId || sessionId !== coordinatorSelectedSessionId) {
+          coordinatorReturnSessionId = null;
+          document.body.classList.remove('coordinator-session-visor-active');
+          const back = document.getElementById('coord-return-to-session');
+          if (back) { back.hidden = true; back.style.display = 'none'; }
+          showTab('ensayo');
+          return;
+        }
         coordinatorReturnSessionId = null;
+        document.body.classList.remove('coordinator-session-visor-active');
         const back = document.getElementById('coord-return-to-session');
-        if (back) back.style.display = 'none';
+        if (back) { back.hidden = true; back.style.display = 'none'; }
         showTab('ensayo');
-        // Restaurar el mismo modal conservado en memoria; no reconstruir la sala.
         const coordinatorBackdrop = document.getElementById('modal-backdrop');
-        if (coordinatorBackdrop && sessionId && coordinatorSelectedSessionId === sessionId) {
-          coordinatorBackdrop.style.removeProperty('display');
+        if (coordinatorBackdrop) {
           coordinatorBackdrop.classList.remove('hidden');
+          coordinatorBackdrop.style.removeProperty('display');
           coordinatorBackdrop.setAttribute('aria-hidden', 'false');
         }
         const room = document.getElementById('coord-session-room');
-        if (room && sessionId && coordinatorSelectedSessionId === sessionId) room.style.display = 'flex';
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'instant' });
-          requestAnimationFrame(() => window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'smooth' }));
-        });
+        if (room) room.style.display = 'flex';
+        requestAnimationFrame(() => window.scrollTo({ top: coordinatorReturnScrollY, behavior: 'instant' }));
       }
 
       function exitCoordinatorSessionRoom() {
         const room = document.getElementById('coord-session-room');
         if (room) room.style.display = 'none';
         coordinatorReturnSessionId = null;
+        document.body.classList.remove('coordinator-session-visor-active');
         const back = document.getElementById('coord-return-to-session');
-        if (back) back.style.display = 'none';
+        if (back) { back.hidden = true; back.style.display = 'none'; }
         showTab('ensayo');
         showToast('Saliste de la sala. La sesión y su contenido siguen disponibles.');
       }
@@ -5817,6 +5835,14 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       // ===================================================================
       function showTab(tabName) {
         state.activeTab = tabName;
+        const sessionReturnButton = document.getElementById('coord-return-to-session');
+        const hasSessionReturnContext = !!coordinatorReturnSessionId;
+        if (sessionReturnButton) {
+          const showSessionReturn = tabName === 'visor' && hasSessionReturnContext;
+          sessionReturnButton.hidden = !showSessionReturn;
+          sessionReturnButton.style.display = showSessionReturn ? 'flex' : 'none';
+        }
+        if (tabName !== 'visor') document.body.classList.remove('coordinator-session-visor-active');
         document.body.classList.toggle('home-active', tabName === 'inicio');
         const homeReturn = document.getElementById('global-home-return');
         if (homeReturn) homeReturn.style.display = tabName === 'inicio' ? 'none' : 'inline-flex';
