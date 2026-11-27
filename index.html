@@ -4303,6 +4303,25 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         } catch (error) { showToast('No se pudo retirar: ' + (error.message || 'Error de Supabase.')); }
       }
 
+      async function takeCoordinatorControl(sessionId) {
+        const button = document.querySelector(`[data-coord-takeover="${sessionId}"]`);
+        if (button) button.disabled = true;
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_takeover', {
+            method: 'POST', body: JSON.stringify({ p_session_id: sessionId })
+          }, true);
+          showToast('Ahora tienes el control de esta sesión.');
+          await loadCoordinatorSessions();
+          if (coordinatorSelectedSessionId === sessionId) {
+            await loadCoordinatorParticipants(sessionId);
+          }
+        } catch (error) {
+          showToast('No se pudo tomar el control: ' + (error.message || 'Permiso no válido.'));
+        } finally {
+          if (button && button.isConnected) button.disabled = false;
+        }
+      }
+
       async function selectCoordinatorSession(sessionId) {
         coordinatorSelectedSessionId = sessionId;
         document.querySelectorAll('[data-coord-select]').forEach(el => el.style.outline = el.dataset.coordSelect === sessionId ? '2px solid var(--primary)' : 'none');
@@ -4332,9 +4351,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               <strong>${esc(session.name)}</strong>
               <span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'} · ${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control' : (session.active_coordinator_id ? 'Otro coordinador dirige' : 'Sin coordinador activo')}</span>
               <small style="color:var(--text-muted);">Revisión de repertorio: ${Number(session.song_revision) || 0}</small>
+              ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id && (state.isAdmin || state.isCoAdmin) ? `<button type="button" class="btn btn-primary btn-sm" data-coord-takeover="${esc(session.id)}">Tomar el control</button>` : ''}
               <button type="button" class="btn btn-secondary btn-sm" data-coord-manage="${esc(session.id)}" ${session.status !== 'active' ? 'disabled' : ''}>Administrar participantes</button>
             </article>`).join('');
           list.querySelectorAll('[data-coord-manage]').forEach(button => button.addEventListener('click', () => selectCoordinatorSession(button.dataset.coordManage)));
+          list.querySelectorAll('[data-coord-takeover]').forEach(button => button.addEventListener('click', () => takeCoordinatorControl(button.dataset.coordTakeover)));
           if (coordinatorSelectedSessionId && rows.some(row => row.id === coordinatorSelectedSessionId && row.status === 'active')) {
             await selectCoordinatorSession(coordinatorSelectedSessionId);
           } else {
