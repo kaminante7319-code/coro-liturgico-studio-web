@@ -4529,6 +4529,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               coordinatorReturnScrollY = window.scrollY || document.documentElement.scrollTop || 0;
               const room = document.getElementById('coord-session-room');
               if (room) room.style.display = 'none';
+              // La sala vive dentro del modal del coordinador. Ocultamos el
+              // backdrop sin destruir su DOM para que el visor sea la única
+              // pantalla visible y podamos restaurar la sala al regresar.
+              const coordinatorBackdrop = document.getElementById('modal-backdrop');
+              if (coordinatorBackdrop) coordinatorBackdrop.classList.add('hidden');
               const back = document.getElementById('coord-return-to-session');
               if (back) back.style.display = 'block';
               openVisor(localSong.id);
@@ -4710,6 +4715,11 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
         const back = document.getElementById('coord-return-to-session');
         if (back) back.style.display = 'none';
         showTab('ensayo');
+        // Restaurar el mismo modal conservado en memoria; no reconstruir la sala.
+        const coordinatorBackdrop = document.getElementById('modal-backdrop');
+        if (coordinatorBackdrop && sessionId && coordinatorSelectedSessionId === sessionId) {
+          coordinatorBackdrop.classList.remove('hidden');
+        }
         const room = document.getElementById('coord-session-room');
         if (room && sessionId && coordinatorSelectedSessionId === sessionId) room.style.display = 'flex';
         requestAnimationFrame(() => {
