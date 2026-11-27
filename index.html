@@ -4323,28 +4323,44 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
       }
 
       async function enterCoordinatorSession(sessionId) {
-        const rows = await supabaseRequest(
-          `/rest/v1/coordinator_sessions?select=id,name,status,active_coordinator_id,created_by,current_canto_id,song_revision&id=eq.${encodeURIComponent(sessionId)}`,
-          {}, true
-        );
-        const session = rows && rows[0];
-        if (!session) { showToast('No se pudo encontrar esta sesión.'); return; }
         const room = document.getElementById('coord-session-room');
-        if (!room) return;
+        if (!room) {
+          showToast('No se encontró el espacio de la sala. Cierra y vuelve a abrir el Modo Coordinador.');
+          return;
+        }
         room.style.display = 'flex';
-        room.innerHTML = `
-          <div class="row-between"><strong>🎼 Sala: ${esc(session.name)}</strong><span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'}</span></div>
-          <p class="section-desc">${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control.' : (session.active_coordinator_id ? 'Otro coordinador tiene el control.' : 'La sesión no tiene coordinador activo.')}</p>
-          <p class="section-desc">Canto compartido: ${session.current_canto_id ? 'ID ' + esc(String(session.current_canto_id)) : 'Todavía no se ha seleccionado un canto.'}</p>
-          <p class="section-desc">Revisión de repertorio: ${Number(session.song_revision) || 0}</p>
-          <div class="row" style="flex-wrap:wrap;gap:8px;">
-            ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id ? `<button type="button" class="btn btn-primary btn-sm" id="coord-room-takeover">Tomar el control</button>` : ''}
-            ${session.status === 'active' && (state.isAdmin || session.created_by === state.supabaseSession?.user?.id) ? `<button type="button" class="btn btn-danger btn-sm" id="coord-room-close">Cerrar sesión</button>` : ''}
-          </div>`;
-        const takeover = document.getElementById('coord-room-takeover');
-        if (takeover) takeover.onclick = async () => { await takeCoordinatorControl(sessionId); await enterCoordinatorSession(sessionId); };
-        const close = document.getElementById('coord-room-close');
-        if (close) close.onclick = () => closeCoordinatorSession(sessionId);
+        room.innerHTML = '<p class="section-desc">Abriendo sesión…</p>';
+        try {
+          const rows = await supabaseRequest(
+            `/rest/v1/coordinator_sessions?select=id,name,status,active_coordinator_id,created_by,current_canto_id,song_revision&id=eq.${encodeURIComponent(sessionId)}`,
+            {}, true
+          );
+          const session = rows && rows[0];
+          if (!session) {
+            room.innerHTML = '<strong>No se pudo abrir la sesión</strong><p class="section-desc">No se encontró la sesión o tu cuenta no tiene acceso para consultarla.</p>';
+            room.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            showToast('No se encontró la sesión o no tienes permiso para verla.');
+            return;
+          }
+          room.innerHTML = `
+            <div class="row-between"><strong>🎼 Sala: ${esc(session.name)}</strong><span class="section-desc">${session.status === 'active' ? 'Activa' : 'Cerrada'}</span></div>
+            <p class="section-desc">${session.active_coordinator_id === state.supabaseSession?.user?.id ? 'Tú tienes el control.' : (session.active_coordinator_id ? 'Otro coordinador tiene el control.' : 'La sesión no tiene coordinador activo.')}</p>
+            <p class="section-desc">Canto compartido: ${session.current_canto_id ? 'ID ' + esc(String(session.current_canto_id)) : 'Todavía no se ha seleccionado un canto.'}</p>
+            <p class="section-desc">Revisión de repertorio: ${Number(session.song_revision) || 0}</p>
+            <div class="row" style="flex-wrap:wrap;gap:8px;">
+              ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id && (state.isAdmin || state.isCoAdmin) ? `<button type="button" class="btn btn-primary btn-sm" id="coord-room-takeover">Tomar el control</button>` : ''}
+              ${session.status === 'active' && (state.isAdmin || session.created_by === state.supabaseSession?.user?.id) ? `<button type="button" class="btn btn-danger btn-sm" id="coord-room-close">Cerrar sesión</button>` : ''}
+            </div>`;
+          const takeover = document.getElementById('coord-room-takeover');
+          if (takeover) takeover.onclick = async () => { await takeCoordinatorControl(sessionId); await enterCoordinatorSession(sessionId); };
+          const close = document.getElementById('coord-room-close');
+          if (close) close.onclick = () => closeCoordinatorSession(sessionId);
+          room.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (error) {
+          room.innerHTML = `<strong>No se pudo abrir la sala</strong><p class="section-desc">${esc(error.message || 'Error al consultar la sesión en Supabase.')}</p>`;
+          room.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          showToast('Error al abrir la sesión: ' + (error.message || 'Error de Supabase.'));
+        }
       }
 
       async function closeCoordinatorSession(sessionId) {
@@ -4362,6 +4378,25 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
           await loadCoordinatorSessions();
         } catch (error) {
           showToast('No se pudo cerrar la sesión: ' + (error.message || 'Error de Supabase.'));
+        }
+      }
+
+      async function deleteClosedCoordinatorSession(sessionId) {
+        if (!state.isAdmin) { showToast('Solo el administrador puede eliminar sesiones.'); return; }
+        if (!confirm('¿Eliminar permanentemente esta sesión cerrada? También desaparecerán sus participantes y todo su historial. Esta acción no se puede deshacer.')) return;
+        try {
+          await supabaseRequest('/rest/v1/rpc/coordinator_delete_closed_session', {
+            method: 'POST', body: JSON.stringify({ p_session_id: sessionId })
+          }, true);
+          if (coordinatorSelectedSessionId === sessionId) coordinatorSelectedSessionId = null;
+          const room = document.getElementById('coord-session-room');
+          if (room) { room.style.display = 'none'; room.innerHTML = ''; }
+          const participants = document.getElementById('coord-participant-panel');
+          if (participants) participants.style.display = 'none';
+          showToast('Sesión eliminada permanentemente.');
+          await loadCoordinatorSessions();
+        } catch (error) {
+          showToast('No se pudo eliminar la sesión: ' + (error.message || 'Error de Supabase.'));
         }
       }
 
@@ -4397,10 +4432,12 @@ Ho[Gm]sanna en el [C7]cielo, ho[Bb]sanna al Se[F]ñor.`
               ${session.status === 'active' && session.active_coordinator_id !== state.supabaseSession?.user?.id && (state.isAdmin || state.isCoAdmin) ? `<button type="button" class="btn btn-primary btn-sm" data-coord-takeover="${esc(session.id)}">Tomar el control</button>` : ''}
               <button type="button" class="btn btn-secondary btn-sm" data-coord-manage="${esc(session.id)}" ${session.status !== 'active' ? 'disabled' : ''}>Administrar participantes</button>
               ${session.status === 'active' && (state.isAdmin || session.created_by === state.supabaseSession?.user?.id) ? `<button type="button" class="btn btn-danger btn-sm" data-coord-close="${esc(session.id)}">Cerrar sesión</button>` : ''}
+              ${session.status === 'closed' && state.isAdmin ? `<button type="button" class="btn btn-danger btn-sm" data-coord-delete="${esc(session.id)}">Eliminar sesión</button>` : ''}
             </article>`).join('');
           list.querySelectorAll('[data-coord-enter]').forEach(button => button.addEventListener('click', () => enterCoordinatorSession(button.dataset.coordEnter)));
           list.querySelectorAll('[data-coord-manage]').forEach(button => button.addEventListener('click', () => selectCoordinatorSession(button.dataset.coordManage)));
           list.querySelectorAll('[data-coord-close]').forEach(button => button.addEventListener('click', () => closeCoordinatorSession(button.dataset.coordClose)));
+          list.querySelectorAll('[data-coord-delete]').forEach(button => button.addEventListener('click', () => deleteClosedCoordinatorSession(button.dataset.coordDelete)));
           list.querySelectorAll('[data-coord-takeover]').forEach(button => button.addEventListener('click', () => takeCoordinatorControl(button.dataset.coordTakeover)));
           if (coordinatorSelectedSessionId && rows.some(row => row.id === coordinatorSelectedSessionId && row.status === 'active')) {
             await selectCoordinatorSession(coordinatorSelectedSessionId);
